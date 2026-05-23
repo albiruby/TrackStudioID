@@ -169,10 +169,12 @@ export async function getTrainingLoads(uid: string): Promise<DailyTrainingLoad[]
 }
 
 export async function getActivity(id: string): Promise<CanonicalActivity | null> {
-  const path = `activities/${id}`;
+  const uid = auth?.currentUser?.uid;
+  if (!uid) return null;
+  const path = `users/${uid}/activities/${id}`;
   checkDatabaseState(OperationType.GET, path);
   try {
-    const docRef = doc(db, 'activities', id);
+    const docRef = doc(db, 'users', uid, 'activities', id);
     const snap = await getDoc(docRef);
     if (!snap.exists()) return null;
     return snap.data() as CanonicalActivity;
@@ -197,10 +199,12 @@ export async function getActivityStream(activityId: string): Promise<CanonicalAc
 }
 
 export async function deleteActivity(activityId: string): Promise<void> {
-  const path = `activities/${activityId}`;
+  const uid = auth?.currentUser?.uid;
+  if (!uid) return;
+  const path = `users/${uid}/activities/${activityId}`;
   checkDatabaseState(OperationType.DELETE, path);
   try {
-    const docRef = doc(db, 'activities', activityId);
+    const docRef = doc(db, 'users', uid, 'activities', activityId);
     await deleteDoc(docRef);
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
@@ -208,13 +212,48 @@ export async function deleteActivity(activityId: string): Promise<void> {
 }
 
 export async function upsertActivity(act: CanonicalActivity): Promise<CanonicalActivity> {
-  const path = `activities/${act.id}`;
+  const uid = auth?.currentUser?.uid;
+  if (!uid) throw new Error("Unauthenticated");
+  const path = `users/${uid}/activities/${act.id}`;
   checkDatabaseState(OperationType.WRITE, path);
   try {
-    const docRef = doc(db, 'activities', act.id);
+    const docRef = doc(db, 'users', uid, 'activities', act.id!);
     await setDoc(docRef, act, { merge: true });
     return act;
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
   }
+}
+
+export async function getLaps(activityId: string): Promise<any> {
+    const uid = auth?.currentUser?.uid;
+    if (!uid) return null;
+    try {
+        const snap = await getDoc(doc(db, 'users', uid, 'laps', activityId));
+        return snap.exists() ? snap.data().laps : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+export async function getSplits(activityId: string): Promise<any> {
+    const uid = auth?.currentUser?.uid;
+    if (!uid) return null;
+    try {
+        const snap = await getDoc(doc(db, 'users', uid, 'splits', activityId));
+        return snap.exists() ? snap.data().splits : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+export async function getBestEfforts(activityId: string): Promise<any> {
+    const uid = auth?.currentUser?.uid;
+    if (!uid) return null;
+    try {
+        const snap = await getDoc(doc(db, 'users', uid, 'bestEfforts', activityId));
+        return snap.exists() ? snap.data().bestEfforts : null;
+    } catch (e) {
+        return null;
+    }
 }

@@ -6,6 +6,9 @@ import { useAuth } from '../../../context/auth-context';
 import { 
   getActivity, 
   getActivityStream, 
+  getLaps,
+  getSplits,
+  getBestEfforts,
   deleteActivity,
   upsertActivity
 } from '../../../lib/firebase/firestore';
@@ -18,23 +21,28 @@ import {
   normalizeDate, 
   getActivityDataHealth 
 } from '../../../lib/data/dataLaw';
-import { CanonicalActivity, CanonicalActivityStream } from '../../../data/types';
+import { CanonicalActivity, CanonicalActivityStream, CanonicalLap, CanonicalSplit, CanonicalBestEffort } from '../../../data/types';
 import { 
   ArrowLeft, 
   Trash2, 
   Calendar, 
   Clock, 
-  Compass, 
   Heart, 
   Loader2, 
   Footprints, 
-  Award, 
   Bookmark, 
   ChevronRight,
-  TrendingUp,
-  MapPin,
   RefreshCw,
-  Gauge
+  Activity,
+  Mountain,
+  FastForward,
+  MapPin,
+  CheckCircle,
+  XCircle,
+  TrendingUp,
+  Thermometer,
+  List,
+  Award
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -43,7 +51,7 @@ import {
   YAxis, 
   Tooltip, 
   Line,
-  CartesianGrid 
+  CartesianGrid
 } from 'recharts';
 
 interface ActivityDetailPageProps {
@@ -54,15 +62,18 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
   const router = useRouter();
   const { user, athleteProfile, loading: authLoading } = useAuth();
   
-  // Unwrapping params Promise in Next.js 15 style
   const { activityId } = use(params);
 
   const [activity, setActivity] = useState<CanonicalActivity | null>(null);
   const [stream, setStream] = useState<CanonicalActivityStream | null>(null);
+  const [laps, setLaps] = useState<CanonicalLap[] | null>(null);
+  const [splits, setSplits] = useState<CanonicalSplit[] | null>(null);
+  const [bestEfforts, setBestEfforts] = useState<CanonicalBestEffort[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isEditingNotes, setIsEditingNotes] = useState(false);
-  const [notes, setNotes] = useState('');
+  const [syncingDetails, setSyncingDetails] = useState(false);
+  const [syncingStreams, setSyncingStreams] = useState(false);
+  const [syncingStructured, setSyncingStructured] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !athleteProfile) {
@@ -73,18 +84,19 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
     const loadData = async () => {
       try {
         setLoading(true);
-        const [act, str] = await Promise.all([
+        const [act, str, lps, spl, be] = await Promise.all([
           getActivity(activityId),
-          getActivityStream(activityId)
+          getActivityStream(activityId),
+          getLaps(activityId),
+          getSplits(activityId),
+          getBestEfforts(activityId)
         ]);
 
-        if (act) {
-          setActivity(act);
-          setNotes(act.notes || '');
-        }
-        if (str) {
-          setStream(str);
-        }
+        if (act) setActivity(act);
+        if (str) setStream(str);
+        if (lps) setLaps(lps);
+        if (spl) setSplits(spl);
+        if (be) setBestEfforts(be);
       } catch (err) {
         console.error('[Error loading activity detail]:', err);
       } finally {
@@ -102,24 +114,65 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
     setIsDeleting(true);
     try {
       await deleteActivity(activityId);
-      router.push('/');
+      router.push('/data-health');
     } catch (err) {
       console.error('[Delete Error]:', err);
       setIsDeleting(false);
     }
   };
 
-  const handleNotesSave = async () => {
-    if (!activity) return;
+  const handleSyncDetail = async () => {
+    setSyncingDetails(true);
     try {
-      const updated = await upsertActivity({
-        ...activity,
-        notes: notes
+      const token = await user?.getIdToken();
+      const res = await fetch('/api/strava/sync/activity-detail', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ activityId: activity?.id })
       });
-      setActivity(updated);
-      setIsEditingNotes(false);
+      if (res.ok) window.location.reload();
+      else alert('Failed to sync details');
     } catch (err) {
-      console.error('[Save Notes Error]:', err);
+      console.error(err);
+    } finally {
+      setSyncingDetails(false);
+    }
+  };
+
+  const handleSyncStreams = async () => {
+    setSyncingStreams(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch('/api/strava/sync/activity-streams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ activityId: activity?.id })
+      });
+      if (res.ok) window.location.reload();
+      else alert('Failed to sync streams');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSyncingStreams(false);
+    }
+  };
+
+  const handleSyncStructured = async () => {
+    setSyncingStructured(true);
+    try {
+      const token = await user?.getIdToken();
+      const res = await fetch('/api/strava/sync/activity-structured-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ activityId: activity?.id })
+      });
+      const data = await res.json();
+      if (res.ok) window.location.reload();
+      else alert(data.error || 'Failed to sync structured data');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSyncingStructured(false);
     }
   };
 
@@ -127,25 +180,20 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-black text-[#FC5200]">
         <Loader2 className="w-8 h-8 animate-spin mb-4" />
-        <span className="text-xs tracking-wider uppercase">LOADING TELEMETRY LAB STREAMS...</span>
+        <span className="text-xs tracking-wider uppercase font-bold text-zinc-500">Retrieving Canonical Record</span>
       </div>
     );
   }
 
   if (!activity) {
     return (
-      <div className="min-h-screen bg-transparent text-zinc-200 flex flex-col items-center justify-center p-4 ">
-        <div className="border border-white/10 bg-[#111113] p-8 rounded-lg max-w-sm w-full text-center space-y-4">
+      <div className="min-h-screen bg-zinc-950 text-zinc-200 flex flex-col items-center justify-center p-4">
+        <div className="border border-zinc-800 bg-[#111113] p-8 rounded-lg max-w-sm w-full text-center space-y-4">
           <ChevronRight className="w-8 h-8 text-red-500 mx-auto rotate-90" />
-          <h2 className="text-sm font-bold uppercase tracking-wide text-red-400">RECORD NOT DETECTED</h2>
-          <p className="text-xs text-zinc-400">
-            The telemetry snapshot matching ID <strong className="text-zinc-400">{activityId}</strong> was not found in active cloud collections.
-          </p>
-          <button
-            onClick={() => router.push('/')}
-            className="w-full bg-zinc-800/50 border border-white/10 p-2 text-xs font-bold text-zinc-200 hover:text-white uppercase rounded cursor-pointer mt-4"
-          >
-            RETURN TO TERMINAL
+          <h2 className="text-sm font-bold uppercase tracking-wide text-red-500">Record Not Detected</h2>
+          <p className="text-xs text-zinc-400">Activity {activityId} was not found.</p>
+          <button onClick={() => router.push('/')} className="w-full bg-zinc-900 border border-zinc-700 p-2 text-xs font-bold text-zinc-300 hover:text-white hover:bg-zinc-800 uppercase rounded mt-4 transition-colors">
+            Return to Dashboard
           </button>
         </div>
       </div>
@@ -155,10 +203,8 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
   const calculatedPaceSec = computePaceFromDistanceTime(activity.distanceMeters, activity.movingTimeSeconds);
   const healthBadge = getActivityDataHealth(activity);
 
-  // Generate graph points based purely on real streams
   const getGraphDataPoints = () => {
     if (!stream || !stream.time) return [];
-    
     return stream.time.map((t, idx) => ({
       index: idx,
       Time: t,
@@ -168,274 +214,378 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
       Cadence: stream.cadence?.[idx] ?? null,
       Watts: stream.watts?.[idx] ?? null,
       Velocity: stream.velocitySmooth?.[idx] ?? null,
+      Pace: stream.velocitySmooth?.[idx] && stream.velocitySmooth[idx] > 0 ? (1000 / stream.velocitySmooth[idx]) : null,
+      Temperature: stream.temp?.[idx] ?? null,
+      Grade: stream.gradeSmooth?.[idx] ?? null
     }));
   };
 
   const chartData = getGraphDataPoints();
-
   const hasAnyStreamKeys = activity.hasStreams || (stream?.time && stream.time.length > 0);
-  const canRenderHr = stream?.heartrate && stream.heartrate.length > 0;
-  const canRenderElev = stream?.altitude && stream.altitude.length > 0;
+  const canRenderHr = !!stream?.heartrate && stream.heartrate.length > 0;
+  const canRenderElev = !!stream?.altitude && stream.altitude.length > 0;
+  const canRenderPower = !!stream?.watts && stream.watts.length > 0;
+  const canRenderCadence = !!stream?.cadence && stream.cadence.length > 0;
+  
+  // Calculate Terrain logic IF grade or elev exists
+  let terrainDistribution = null;
+  if (stream?.gradeSmooth && stream.gradeSmooth.length > 0) {
+      let uph = 0; let flat = 0; let dwn = 0;
+      stream.gradeSmooth.forEach(g => {
+         if (g > 1) uph++;
+         else if (g < -1) dwn++;
+         else flat++;
+      });
+      const tot = uph + flat + dwn;
+      terrainDistribution = { 
+          uphill: Math.round((uph/tot)*100), 
+          flat: Math.round((flat/tot)*100), 
+          downhill: Math.round((dwn/tot)*100) 
+      };
+  }
+
+  const booleanIcon = (val: boolean) => val ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <XCircle className="w-3.5 h-3.5 text-zinc-700" />;
 
   return (
-    <div className="min-h-screen bg-transparent text-zinc-100 flex flex-col p-6 sm:p-8 ">
-      
-      <div className="max-w-[1400px] w-full mx-auto space-y-6">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col p-4 sm:p-8 font-sans">
+      <div className="max-w-[1200px] w-full mx-auto space-y-6">
         
-        {/* BACK ACTION & DELETE ROW */}
-        <div className="flex justify-between items-center bg-[#111113] p-4 border border-white/10 rounded-lg">
-          <button
-            onClick={() => router.push('/')}
-            className="px-4 py-2 hover:bg-zinc-800/50 border border-white/10 hover:border-white/20 text-zinc-300 hover:text-white rounded text-[10px] sm:text-xs tracking-wider uppercase cursor-pointer inline-flex items-center gap-2 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">Athletes Register</span>
+        {/* HEADER */}
+        <div className="flex flex-wrap justify-between items-center bg-[#111113] p-4 border border-zinc-800/80 rounded gap-4 shadow-sm">
+          <button onClick={() => router.push('/')} className="px-3 py-1.5 hover:bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-white rounded text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-2 transition-colors">
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Register</span>
           </button>
 
-          <div className="flex gap-2">
-            {activity.source === 'strava' && !activity.detailSyncedAt && (
-              <button
-                onClick={async () => {
-                  try {
-                    const token = await user?.getIdToken();
-                    const res = await fetch('/api/strava/sync/activity-detail', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                      },
-                      body: JSON.stringify({ activityId: activity.id })
-                    });
-                    if (res.ok) {
-                      window.location.reload();
-                    } else {
-                      alert('Failed to sync details');
-                    }
-                  } catch (err) {
-                    console.error(err);
-                  }
-                }}
-                className="px-3 py-2 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-900/60 text-emerald-400 rounded text-[10px] sm:text-xs tracking-wider uppercase cursor-pointer inline-flex items-center gap-2 transition-colors"
-              >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Sync Details</span>
+          <div className="flex flex-wrap gap-2">
+            {!activity.detailSyncedAt && (
+              <button onClick={handleSyncDetail} disabled={syncingDetails} className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-colors">
+                <RefreshCw className={`w-3 h-3 ${syncingDetails ? 'animate-spin cursor-not-allowed' : ''}`} />
+                <span>Sync Detail</span>
               </button>
             )}
-
-            <button
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="px-4 py-2 hover:bg-red-950/40 border border-white/10 hover:border-red-900/60 text-zinc-500 hover:text-red-400 rounded text-[10px] sm:text-xs tracking-wider uppercase cursor-pointer inline-flex items-center gap-2 transition-colors"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>{isDeleting ? '...' : 'Erase'}</span>
+            {activity.detailSyncedAt && !activity.streamsSyncedAt && (
+              <button onClick={handleSyncStreams} disabled={syncingStreams} className="px-3 py-1.5 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-900/60 text-indigo-400 rounded text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-2 transition-colors">
+                <RefreshCw className={`w-3 h-3 ${syncingStreams ? 'animate-spin cursor-not-allowed' : ''}`} />
+                <span>Sync Streams</span>
+              </button>
+            )}
+            {activity.detailSyncedAt && !activity.structuredDataSyncedAt && (
+              <button onClick={handleSyncStructured} disabled={syncingStructured} className="px-3 py-1.5 bg-pink-950/40 hover:bg-pink-900/60 border border-pink-900/60 text-pink-400 rounded text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-2 transition-colors">
+                <RefreshCw className={`w-3 h-3 ${syncingStructured ? 'animate-spin cursor-not-allowed' : ''}`} />
+                <span>Sync Laps & Splits</span>
+              </button>
+            )}
+            <button onClick={() => alert('Data exporter in development')} className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-colors">
+              Export Data
+            </button>
+            <button onClick={handleDelete} disabled={isDeleting} className="px-3 py-1.5 hover:bg-red-950/40 hover:border-red-900/60 border border-zinc-800 text-zinc-500 hover:text-red-400 rounded text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-2 transition-colors">
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">{isDeleting ? '...' : 'Erase'}</span>
             </button>
           </div>
         </div>
 
-        {/* PRIMARY DISPLAY META */}
-        <div className="bg-[#111113] border border-white/10 rounded-lg p-6 sm:p-8 space-y-4">
-          
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="p-1 px-3 bg-zinc-800/50 border border-white/10 text-zinc-300 font-extrabold text-xs uppercase tracking-wider rounded">
-              {activity.sportType}
+        {/* METADATA OVERVIEW */}
+        <div className="bg-[#111113] border border-zinc-800/80 rounded p-6 sm:p-8 flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-3 mb-1">
+            <span className="px-2 py-0.5 bg-zinc-900 border border-zinc-700 text-zinc-200 font-bold text-[9px] uppercase tracking-wider rounded">
+              {activity.sportType || 'Activity'}
             </span>
-            <span className={`text-xs border font-bold px-2 py-0.5 rounded ${healthBadge.color}`}>
+            <span className={`text-[9px] border font-bold px-2 py-0.5 rounded uppercase tracking-wider ${healthBadge.color}`}>
               {healthBadge.label}
-            </span>
-            <span className="text-zinc-400 text-xs">
-              ID: {activity.id}
             </span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-bold uppercase tracking-wide text-white tracking-tight leading-none">
+          <h1 className="text-3xl sm:text-5xl font-black tracking-tight text-white mb-2 leading-none">
             {activity.name}
           </h1>
 
-          <div className="flex items-center gap-6 text-xs text-zinc-400 border-t border-white/10 pt-4">
+          <div className="flex items-center gap-3 md:gap-5 text-[10px] sm:text-[11px] uppercase tracking-wider text-zinc-500 font-bold">
             <span className="inline-flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-zinc-500" />
-              <span>{normalizeDate(activity.startDate)}</span>
+              <Calendar className="w-3.5 h-3.5" />
+              {normalizeDate(activity.startDate)}
             </span>
-            <span className="text-zinc-700">•</span>
+            <span className="text-zinc-700">&bull;</span>
             <span className="inline-flex items-center gap-1.5">
-              <Clock className="w-4 h-4 text-zinc-500" />
-              <span>{new Date(activity.startDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+              <Clock className="w-3.5 h-3.5" />
+              {new Date(activity.startDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
             </span>
+            <span className="text-zinc-700">&bull;</span>
+            <span className="text-[#FC5200]">SRC: {activity.source?.toUpperCase() || 'UNKNOWN'}</span>
           </div>
-
         </div>
 
-        {/* METRICS SUMMARY GRID BOXES */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-          
-          <div className="bg-[#111113] rounded-lg border border-white/10 p-5 hover:border-white/10 transition-all">
-            <span className="text-xs font-sans font-medium text-zinc-400 uppercase tracking-wide font-bold">Total Distance</span>
-            <p className="text-3xl md:text-4xl font-bold tracking-tight mt-2 text-white font-mono">
-              {formatDistanceKm(activity.distanceMeters)}
-            </p>
+        {/* TOP METRICS ROW */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="bg-[#111113] rounded border border-zinc-800/80 p-5">
+            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Distance</span>
+            <p className="text-xl md:text-2xl font-bold mt-1 text-zinc-100 font-mono">{formatDistanceKm(activity.distanceMeters)}</p>
           </div>
-
-          <div className="bg-[#111113] rounded-lg border border-white/10 p-5 hover:border-white/10 transition-all">
-            <span className="text-xs font-sans font-medium text-zinc-400 uppercase tracking-wide font-bold">Moving Duration</span>
-            <p className="text-3xl md:text-4xl font-bold tracking-tight mt-2 text-white font-mono">
-              {formatDuration(activity.movingTimeSeconds)}
-            </p>
+          <div className="bg-[#111113] rounded border border-zinc-800/80 p-5">
+            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Moving Time</span>
+            <p className="text-xl md:text-2xl font-bold mt-1 text-zinc-100 font-mono">{formatDuration(activity.movingTimeSeconds || undefined)}</p>
           </div>
-
-          <div className="bg-[#111113] rounded-lg border border-white/10 p-5 hover:border-white/10 transition-all">
-            <span className="text-xs font-sans font-medium text-zinc-400 uppercase tracking-wide font-bold">Aerobic Pace</span>
-            <p className="text-3xl md:text-4xl font-bold tracking-tight mt-2 text-[#FC5200] font-mono">
-              {formatPace(calculatedPaceSec)}
-            </p>
+          <div className="bg-[#111113] rounded border border-zinc-800/80 p-5">
+            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Avg Pace</span>
+            <p className="text-xl md:text-2xl font-bold mt-1 text-[#FC5200] font-mono">{formatPace(calculatedPaceSec)}</p>
           </div>
-
-          <div className="bg-[#111113] rounded-lg border border-white/10 p-5 hover:border-white/10 transition-all col-span-2 md:col-span-1">
-            <span className="text-xs font-sans font-medium text-zinc-400 uppercase tracking-wide font-bold">TRIMP workload</span>
-            <p className="text-3xl md:text-4xl font-bold tracking-tight mt-2 text-yellow-500 font-mono">
-              {activity.trainingLoad || 0}
-            </p>
+          <div className="bg-[#111113] rounded border border-zinc-800/80 p-5">
+            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Avg Heart Rate</span>
+            <p className="text-xl md:text-2xl font-bold mt-1 text-zinc-100 font-mono">{activity.averageHeartRate ? Math.round(activity.averageHeartRate) : '—'} <span className="text-[10px] text-zinc-600 font-sans tracking-wide">BPM</span></p>
           </div>
-
+          <div className="bg-[#111113] rounded border border-zinc-800/80 p-5">
+            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Avg Power</span>
+            <p className="text-xl md:text-2xl font-bold mt-1 text-zinc-100 font-mono">{activity.averageWatts ? Math.round(activity.averageWatts) : '—'} <span className="text-[10px] text-zinc-600 font-sans tracking-wide">W</span></p>
+          </div>
+          <div className="bg-[#111113] rounded border border-zinc-800/80 p-5">
+            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">Calories Burned</span>
+            <p className="text-xl md:text-2xl font-bold mt-1 text-zinc-100 font-mono">{activity.calories ? Math.round(activity.calories) : '—'} <span className="text-[10px] text-zinc-600 font-sans tracking-wide">KCAL</span></p>
+          </div>
         </div>
 
-        {/* GRAPH DIAGRAM DISPLAY PANEL */}
-        <div className="bg-[#111113] border border-white/10 rounded-lg p-6">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-tight text-white mb-1">Cardiorespiratory Form Stream</h3>
-              <p className="text-sm font-sans text-zinc-400">Live heart-rate (BPM) decay plotted chronological across length of the workout session</p>
-            </div>
-            
-            {activity.source === 'strava' && !hasAnyStreamKeys && (
-              <button
-                onClick={async () => {
-                  try {
-                    const token = await user?.getIdToken();
-                    const res = await fetch('/api/strava/sync/activity-streams', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                      },
-                      body: JSON.stringify({ activityId: activity.id })
-                    });
-                    if (res.ok) {
-                      window.location.reload();
-                    } else {
-                      alert('Failed to sync streams');
-                    }
-                  } catch (err) {
-                    console.error('Failed to sync streams', err);
-                  }
-                }}
-                className="px-3 py-1.5 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-900/60 text-purple-400 rounded text-[10px] tracking-wider uppercase cursor-pointer transition-colors"
-              >
-                Sync Streams
-              </button>
-            )}
+        {/* MAP & META ROW */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <div className="lg:col-span-2 bg-[#111113] border border-zinc-800/80 rounded p-6">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-4 inline-flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#FC5200]" /> GPS Route Map
+              </h3>
+              {(activity.map?.polyline || activity.map?.summary_polyline) ? (
+                <div className="w-full h-80 bg-zinc-950 border border-zinc-800 rounded flex flex-col items-center justify-center relative overflow-hidden">
+                   <div className="absolute inset-0 pattern-grid-lg text-zinc-800/30"></div>
+                   <span className="text-zinc-600 text-[10px] font-mono font-bold tracking-widest uppercase relative z-10 bg-[#111113] px-3 py-1 border border-zinc-800">Map renderer required</span>
+                </div>
+              ) : (
+                <div className="w-full h-80 bg-black border border-dashed border-zinc-800/80 rounded flex items-center justify-center">
+                   <span className="text-zinc-600/80 text-xs font-bold font-mono tracking-widest uppercase">This activity does not include GPS route data.</span>
+                </div>
+              )}
+           </div>
+
+           <div className="bg-[#111113] border border-zinc-800/80 rounded p-6 flex flex-col justify-between">
+              <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-5 inline-flex items-center gap-2">
+                  <CheckCircle className="w-4 h-4 text-emerald-500" /> Data Integration Health
+                </h3>
+                <div className="grid grid-cols-1 gap-y-3.5 text-[10px] font-bold tracking-wider uppercase">
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.detailSyncedAt)} Detailed Meta</div></div>
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.streamsSyncedAt)} Sensor Streams</div></div>
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.structuredDataSyncedAt)} Laps / Splits</div></div>
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.hasBestEfforts)} Best Efforts</div></div>
+                  <div className="w-full h-px bg-zinc-800/60 my-1"></div>
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.averageHeartRate)} Heart Rate Data</div></div>
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.averageWatts)} Power Data</div></div>
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.cadenceAvg)} Cadence Data</div></div>
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.map?.polyline)} GPS Polyline</div></div>
+                </div>
+              </div>
+           </div>
+        </div>
+
+        {/* ACTIVITY STREAM ANALYSIS */}
+        <div className="bg-[#111113] border border-zinc-800/80 rounded p-6">
+          <div className="flex flex-col mb-6">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-1 inline-flex items-center gap-2">
+              <Activity className="w-4 h-4 text-[#FC5200]" /> High-Resolution Telemetry Streams
+            </h3>
           </div>
 
           {!hasAnyStreamKeys ? (
-             <div className="h-64 flex flex-col items-center justify-center border border-dashed border-white/10 rounded bg-black/20">
-                <span className="text-zinc-500 text-xs font-mono font-bold uppercase tracking-widest">Stream data required</span>
+             <div className="h-64 flex flex-col items-center justify-center border border-dashed border-zinc-800/80 rounded bg-zinc-900/30">
+                <span className="text-zinc-600/80 text-xs font-bold uppercase tracking-widest font-mono">Stream data required</span>
              </div>
           ) : (
-            <div className="h-64 font-mono">
+            <div className="h-80 w-full text-[10px] font-mono">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData}>
-                  <XAxis dataKey="Distance" style={{ fontSize: 9, fontFamily: 'monospace' }} stroke="#3f3f46" tickFormatter={(val) => `${(val / 1000).toFixed(1)}k`} />
-                  <YAxis yAxisId="left" domain={['dataMin - 10', 'dataMax + 10']} style={{ fontSize: 9, fontFamily: 'monospace' }} stroke="#3f3f46" />
-                  <YAxis yAxisId="right" orientation="right" domain={['dataMin', 'dataMax']} hide />
-                  <Tooltip contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '4px' }} labelStyle={{ color: '#fff' }} />
-                  {canRenderHr && (
-                    <Line yAxisId="left" type="monotone" dataKey="HeartRate" name="Heart Rate (BPM)" stroke="#ef4444" strokeWidth={2} dot={false} isAnimationActive={false} />
-                  )}
-                  {canRenderElev && (
-                    <Line yAxisId="right" type="monotone" dataKey="Altitude" name="Altitude (m)" stroke="#3b82f6" strokeWidth={0.8} dot={false} isAnimationActive={false} />
-                  )}
+                <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                  <XAxis dataKey="Distance" stroke="#52525b" tick={{ fill: '#71717a' }} tickFormatter={(val) => `${(val / 1000).toFixed(1)}k`} />
+                  <YAxis yAxisId="left" stroke="#52525b" tick={{ fill: '#71717a' }} />
+                  <YAxis yAxisId="right" orientation="right" hide />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '4px' }} 
+                    labelStyle={{ color: '#fff', marginBottom: '8px', fontSize: '11px', fontFamily: 'sans-serif', fontWeight: 'bold' }} 
+                    labelFormatter={(val) => `${(val as number / 1000).toFixed(2)} km`}
+                  />
+                  {canRenderHr && <Line yAxisId="left" type="monotone" dataKey="HeartRate" name="Heart Rate" stroke="#ef4444" strokeWidth={1} dot={false} isAnimationActive={false} />}
+                  {canRenderElev && <Line yAxisId="right" type="monotone" dataKey="Altitude" name="Altitude" stroke="#a1a1aa" strokeWidth={0.8} dot={false} isAnimationActive={false} />}
+                  {canRenderPower && <Line yAxisId="left" type="monotone" dataKey="Watts" name="Power" stroke="#a855f7" strokeWidth={1} dot={false} isAnimationActive={false} />}
+                  {canRenderCadence && <Line yAxisId="left" type="monotone" dataKey="Cadence" name="Cadence" stroke="#0ea5e9" strokeWidth={1} dot={false} isAnimationActive={false} />}
                 </LineChart>
               </ResponsiveContainer>
-              {(!canRenderHr && !canRenderElev) && (
+              {(!canRenderHr && !canRenderElev && !canRenderPower && !canRenderCadence) && (
                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <span className="text-zinc-500 text-xs font-mono bg-[#111113]/80 p-2 uppercase">This activity does not include this sensor stream.</span>
+                    <span className="text-zinc-400 text-xs bg-[#111113]/90 px-4 py-2 uppercase font-bold tracking-wider font-sans border border-zinc-800">This activity does not include standard sensor streams.</span>
                  </div>
               )}
             </div>
           )}
-
-          <div className="grid grid-cols-2 gap-6 mt-6 border-t border-white/10 pt-5">
-            <div className="flex items-center gap-3">
-              <Heart className="w-5 h-5 text-red-500" />
-              <div>
-                <span className="text-sm font-sans text-zinc-400 block uppercase font-bold">Weighted HR Rating</span>
-                <span className="text-sm font-bold text-white">{activity.averageHeartRate || '—'} bpm / {activity.maxHeartRate || '—'} max</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Footprints className="w-5 h-5 text-yellow-550" />
-              <div>
-                <span className="text-sm font-sans text-zinc-400 block uppercase font-bold">Step Rate Cadence</span>
-                <span className="text-sm font-bold text-white">{activity.cadenceAvg || '—'} rpm avg</span>
-              </div>
-            </div>
-          </div>
-
         </div>
 
-        {/* NOTES REFLECTIONS SHEETS */}
-        <div className="bg-[#111113] border border-white/10 rounded-lg p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-bold uppercase tracking-tight text-white inline-flex items-center gap-2">
-              <Bookmark className="w-4 h-4 text-zinc-400" />
-              <span>Athlete Reflections</span>
+        {/* DETAILS & TERRAIN */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-[#111113] border border-zinc-800/80 rounded p-6">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-5 inline-flex items-center gap-2">
+              <Mountain className="w-4 h-4 text-emerald-500" /> Terrain Breakdown
             </h3>
-            {!isEditingNotes && (
-              <button
-                onClick={() => setIsEditingNotes(true)}
-                className="text-xs text-[#FC5200] hover:underline font-bold uppercase cursor-pointer border-none"
-              >
-                EDIT REFLECTION
-              </button>
+            
+            {!terrainDistribution ? (
+               <div className="w-full flex-1 py-8 h-full min-h-[140px] flex items-center justify-center border border-dashed border-zinc-800/80 rounded">
+                  <span className="text-zinc-600/80 text-[10px] uppercase font-bold font-mono tracking-widest text-center px-4">Elevation or grade stream data is required.</span>
+               </div>
+            ) : (
+               <div className="flex flex-col flex-1 h-[140px] justify-center gap-5">
+                   <div className="w-full h-8 bg-zinc-900 rounded overflow-hidden flex border border-zinc-800">
+                      <div className="h-full bg-red-900/60 transition-all flex items-center justify-center text-[9px] font-bold" style={{ width: `${terrainDistribution.uphill}%`}}>{terrainDistribution.uphill > 10 ? 'UPHILL' : ''}</div>
+                      <div className="h-full bg-zinc-600/30 transition-all flex items-center justify-center text-[9px] font-bold text-zinc-400" style={{ width: `${terrainDistribution.flat}%`}}>{terrainDistribution.flat > 10 ? 'FLAT' : ''}</div>
+                      <div className="h-full bg-emerald-900/40 transition-all flex items-center justify-center text-[9px] font-bold" style={{ width: `${terrainDistribution.downhill}%`}}>{terrainDistribution.downhill > 10 ? 'DOWNHILL' : ''}</div>
+                   </div>
+                   <div className="grid grid-cols-3 text-center text-[10px] uppercase font-bold tracking-wider text-zinc-400 gap-2">
+                       <div><span className="text-red-400 block text-lg font-mono">{terrainDistribution.uphill}%</span> Uphill</div>
+                       <div><span className="text-zinc-300 block text-lg font-mono">{terrainDistribution.flat}%</span> Flat / Level</div>
+                       <div><span className="text-emerald-400 block text-lg font-mono">{terrainDistribution.downhill}%</span> Downhill</div>
+                   </div>
+               </div>
             )}
           </div>
+          
+          <div className="bg-[#111113] border border-zinc-800/80 rounded p-6 text-sm flex flex-col justify-between">
+             <div>
+                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-5 inline-flex items-center gap-2">
+                  <List className="w-4 h-4 text-blue-500" /> Activity Metadata
+                </h3>
+                <div className="space-y-4">
+                  <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                    <span className="text-zinc-500 uppercase tracking-wider text-[10px] font-bold">Elapsed Time</span>
+                    <span className="text-zinc-200 font-mono text-xs">{formatDuration(activity.raw?.elapsed_time || activity.movingTimeSeconds || undefined)}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                    <span className="text-zinc-500 uppercase tracking-wider text-[10px] font-bold">Device</span>
+                    <span className="text-zinc-200 font-mono text-xs">{activity.deviceName || '—'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                    <span className="text-zinc-500 uppercase tracking-wider text-[10px] font-bold">Elevation Range</span>
+                    <span className="text-zinc-200 font-mono text-xs">{activity.elevLow != null && activity.elevHigh != null ? `${activity.elevLow}m - ${activity.elevHigh}m` : '—'}</span>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-zinc-800/60">
+                    <span className="text-zinc-500 uppercase tracking-wider text-[10px] font-bold">Temperature</span>
+                    <span className="text-zinc-200 font-mono text-xs">{stream?.temp ? `${Math.round(stream.temp.reduce((a,b)=>a+b,0)/stream.temp.length)} °C (Avg)` : '—'}</span>
+                  </div>
+                </div>
+             </div>
+          </div>
+        </div>
 
-          {isEditingNotes ? (
-            <div className="space-y-3">
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                className="w-full bg-zinc-800/50 border border-white/10 p-3 text-zinc-200 outline-none rounded text-xs"
-                placeholder="Document cardiac stress responses, local muscle states, environmental vectors..."
-              />
-              <div className="flex justify-end gap-3 text-xs">
-                <button
-                  onClick={() => {
-                    setNotes(activity.notes || '');
-                    setIsEditingNotes(false);
-                  }}
-                  className="px-3 py-1.5 hover:bg-zinc-800/50 border border-white/10 text-zinc-400 rounded cursor-pointer uppercase font-bold text-xs"
-                >
-                  CANCEL
-                </button>
-                <button
-                  onClick={handleNotesSave}
-                  className="px-3 py-1.5 bg-[#FC5200] text-black rounded font-bold cursor-pointer uppercase text-xs"
-                >
-                  SAVE NOTES
-                </button>
-              </div>
+        {/* LAPS */}
+        <div className="bg-[#111113] border border-zinc-800/80 rounded overflow-hidden p-6">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-5 inline-flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 text-pink-500" /> Canonical Laps Data
+          </h3>
+          {laps && laps.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead className="text-[9px] text-zinc-500 uppercase tracking-wider border-b border-zinc-800/60">
+                  <tr>
+                    <th className="pb-3 font-bold px-2">Lap</th>
+                    <th className="pb-3 font-bold px-2">Name</th>
+                    <th className="pb-3 font-bold px-2">Dist (m)</th>
+                    <th className="pb-3 font-bold px-2">Moving Time</th>
+                    <th className="pb-3 font-bold px-2 text-[#FC5200]">Pace Avg</th>
+                    <th className="pb-3 font-bold px-2">HR Avg/Max</th>
+                    <th className="pb-3 font-bold px-2">Cadence</th>
+                    <th className="pb-3 font-bold px-2">Pwr Avg</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/40">
+                  {laps.map((lap, i) => (
+                    <tr key={i} className="hover:bg-zinc-900 transition-colors">
+                      <td className="py-2.5 px-2 font-mono text-zinc-400">{lap.lapIndex}</td>
+                      <td className="py-2.5 px-2 text-zinc-300 font-bold">{lap.name || `Lap ${lap.lapIndex}`}</td>
+                      <td className="py-2.5 px-2 font-mono text-zinc-300">{Math.round(lap.distanceMeters || 0)}</td>
+                      <td className="py-2.5 px-2 font-mono text-zinc-300">{formatDuration(lap.movingTimeSeconds ?? undefined)}</td>
+                      <td className="py-2.5 px-2 font-mono text-indigo-400 font-bold">{lap.paceSecPerKm ? formatPace(lap.paceSecPerKm) : '—'}</td>
+                      <td className="py-2.5 px-2 font-mono text-red-500">{(lap.averageHeartRate || lap.maxHeartRate) ? `${Math.round(lap.averageHeartRate||0)} / ${Math.round(lap.maxHeartRate||0)}` : '—'}</td>
+                      <td className="py-2.5 px-2 font-mono text-zinc-300">{lap.averageCadence ? Math.round(lap.averageCadence) : '—'}</td>
+                      <td className="py-2.5 px-2 font-mono text-purple-400">{lap.averageWatts ? Math.round(lap.averageWatts) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : (
-            <p className="text-xs text-zinc-300 leading-relaxed italic bg-zinc-800/50/10 p-4 border border-white/10 rounded">
-              {activity.notes ? activity.notes : 'No athletic reflections or laboratory observations documented for this workout session.'}
-            </p>
+             <div className="w-full py-10 text-center border border-dashed border-zinc-800/80 rounded">
+                <span className="text-zinc-600/80 text-[10px] font-bold font-mono tracking-widest uppercase">No laps recorded for this activity.</span>
+             </div>
+          )}
+        </div>
+
+        {/* SPLITS */}
+        <div className="bg-[#111113] border border-zinc-800/80 rounded overflow-hidden p-6">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-5 inline-flex items-center gap-2">
+            <List className="w-4 h-4 text-orange-500" /> Per-KM Metric Splits
+          </h3>
+          {splits && splits.filter(s => s.splitType === 'metric').length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs whitespace-nowrap">
+                <thead className="text-[9px] text-zinc-500 uppercase tracking-wider border-b border-zinc-800/60">
+                  <tr>
+                    <th className="pb-3 font-bold px-2 text-zinc-300">KM</th>
+                    <th className="pb-3 font-bold px-2 text-[#FC5200]">Pace Avg</th>
+                    <th className="pb-3 font-bold px-2">Moving Time</th>
+                    <th className="pb-3 font-bold px-2">Elev (±)</th>
+                    <th className="pb-3 font-bold px-2">HR Avg</th>
+                    <th className="pb-3 font-bold px-2">Pwr Avg</th>
+                    <th className="pb-3 font-bold px-2">Cadence</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-zinc-800/40 font-mono">
+                  {splits.filter(s => s.splitType === 'metric').map((split, i) => (
+                    <tr key={i} className="hover:bg-zinc-900 transition-colors">
+                      <td className="py-2.5 px-2 text-zinc-200 font-bold">{split.splitIndex}</td>
+                      <td className="py-2.5 px-2 font-bold text-zinc-200">{split.paceSecPerKm ? formatPace(split.paceSecPerKm) : '—'}</td>
+                      <td className="py-2.5 px-2 text-zinc-400">{formatDuration(split.movingTimeSeconds ?? undefined)}</td>
+                      <td className="py-2.5 px-2 text-emerald-500">{split.elevationDifferenceMeters ? (split.elevationDifferenceMeters > 0 ? `+${Math.round(split.elevationDifferenceMeters)}` : Math.round(split.elevationDifferenceMeters)) : '—'}</td>
+                      <td className="py-2.5 px-2 text-red-500">{split.averageHeartRate ? Math.round(split.averageHeartRate) : '—'}</td>
+                      <td className="py-2.5 px-2 text-purple-400">{split.averageWatts ? Math.round(split.averageWatts) : '—'}</td>
+                      <td className="py-2.5 px-2 text-blue-400">{split.averageCadence ? Math.round(split.averageCadence) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+             <div className="w-full py-10 text-center border border-dashed border-zinc-800/80 rounded">
+                <span className="text-zinc-600/80 text-[10px] font-bold font-mono tracking-widest uppercase">Metric splits not generated for this activity.</span>
+             </div>
+          )}
+        </div>
+
+        {/* BEST EFFORTS */}
+        <div className="bg-[#111113] border border-zinc-800/80 rounded p-6">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-5 inline-flex items-center gap-2">
+            <Award className="w-4 h-4 text-yellow-500" /> Best Efforts
+          </h3>
+          {bestEfforts && bestEfforts.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+               {bestEfforts.map((be, i) => (
+                 <div key={i} className="p-4 border border-zinc-800/80 rounded bg-zinc-900 flex flex-col hover:border-zinc-700 transition-colors">
+                    <span className="text-[10px] uppercase tracking-wider font-bold text-zinc-500 mb-2">{be.name}</span>
+                    <span className="text-2xl font-bold font-mono text-zinc-100">{formatDuration(be.elapsedTimeSeconds ?? undefined)}</span>
+                    <div className="flex gap-4 mt-3 pt-3 border-t border-zinc-800/50 text-[10px] uppercase font-bold text-zinc-500">
+                       <span className="text-indigo-400 tracking-wider font-mono">{be.paceSecPerKm ? formatPace(be.paceSecPerKm) + '/km' : '— pace'}</span>
+                       {be.averageHeartRate && <span className="text-red-500/80 flex items-center gap-1 font-mono"><Heart className="w-3 h-3 text-red-500/60"/> {Math.round(be.averageHeartRate)}</span>}
+                    </div>
+                 </div>
+               ))}
+            </div>
+          ) : (
+             <div className="w-full py-10 text-center border border-dashed border-zinc-800/80 rounded">
+                <span className="text-zinc-600/80 text-[10px] font-bold font-mono tracking-widest uppercase">Best effort data is not available for this activity.</span>
+             </div>
           )}
         </div>
 
       </div>
-
     </div>
   );
 }

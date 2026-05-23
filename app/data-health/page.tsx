@@ -374,6 +374,18 @@ export default function DataHealthPage() {
           affectedName: act.name
         });
       }
+
+      // 10. activities missing structured data sync
+      if (!act.structuredDataSyncedAt) {
+        detectedWarnings.push({
+          id: `no_structuredDataSyncedAt_${act.id}`,
+          category: 'syncedAt',
+          severity: 'low',
+          message: `Activity is missing structured data sync (laps, splits, best efforts).`,
+          affectedId: act.id,
+          affectedName: act.name
+        });
+      }
     });
 
     setWarnings(detectedWarnings);
@@ -629,6 +641,9 @@ export default function DataHealthPage() {
                  const noDetail = total - withDetail;
                  const withStreams = syncedActs.filter(a => !!a.streamsSyncedAt).length;
                  const noStreams = total - withStreams;
+                 const withLaps = syncedActs.filter(a => !!a.structuredDataSyncedAt && !!a.hasLaps).length;
+                 const withSplits = syncedActs.filter(a => !!a.structuredDataSyncedAt && !!a.hasSplits).length;
+                 const withBestEfforts = syncedActs.filter(a => !!a.structuredDataSyncedAt && !!a.hasBestEfforts).length;
                  
                  return (
                    <div className="border border-white/10 p-4 rounded bg-zinc-800/50/20 space-y-3 text-xs text-zinc-400">
@@ -644,10 +659,10 @@ export default function DataHealthPage() {
                       <div className="grid grid-cols-6 gap-2 pt-1 text-center">
                          <div><span className="block text-[8px] uppercase">W/ DETAIL</span><span className="font-bold text-zinc-100 block">{withDetail}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noDetail}</span></div>
                          <div><span className="block text-[8px] uppercase">W/ STREAM</span><span className="font-bold text-indigo-400 block">{withStreams}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noStreams}</span></div>
-                         <div><span className="block text-[8px] uppercase">W/ GPS</span><span className="font-bold text-emerald-400 block">{withGps}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noGps}</span></div>
-                         <div><span className="block text-[8px] uppercase">W/ HR</span><span className="font-bold text-[#FC5200] block">{withHr}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noHr}</span></div>
+                         <div><span className="block text-[8px] uppercase">LAPS</span><span className="font-bold text-pink-400 block">{withLaps}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {total - withLaps}</span></div>
+                         <div><span className="block text-[8px] uppercase">SPLITS</span><span className="font-bold text-orange-400 block">{withSplits}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {total - withSplits}</span></div>
+                         <div><span className="block text-[8px] uppercase">BEST EFFORTS</span><span className="font-bold text-yellow-400 block">{withBestEfforts}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {total - withBestEfforts}</span></div>
                          <div><span className="block text-[8px] uppercase">W/ POWER</span><span className="font-bold text-purple-400 block">{withPower}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noPower}</span></div>
-                         <div><span className="block text-[8px] uppercase">W/ CADENCE</span><span className="font-bold text-blue-400 block">{withCadence}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noCadence}</span></div>
                       </div>
                    </div>
                  );

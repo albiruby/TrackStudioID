@@ -84,6 +84,63 @@ export interface CanonicalActivity {
   streamsSyncedAt?: string;
   hasStreams?: boolean;
   streamKeysAvailable?: string[];
+  // structured data sync fields
+  structuredDataSyncedAt?: string;
+  hasLaps?: boolean;
+  hasSplits?: boolean;
+  hasBestEfforts?: boolean;
+}
+
+export interface CanonicalLap {
+  activityId: string;
+  lapIndex: number;
+  name: string;
+  distanceMeters: number | null;
+  movingTimeSeconds: number | null;
+  elapsedTimeSeconds: number | null;
+  paceSecPerKm: number | null;
+  averageSpeedMps: number | null;
+  maxSpeedMps: number | null;
+  averageHeartRate: number | null;
+  maxHeartRate: number | null;
+  averageCadence: number | null;
+  averageWatts: number | null;
+  elevationGainMeters: number | null;
+  startIndex: number | null;
+  endIndex: number | null;
+  raw?: any;
+}
+
+export interface CanonicalSplit {
+  activityId: string;
+  splitIndex: number;
+  splitType: "metric" | "standard";
+  distanceMeters: number | null;
+  elapsedTimeSeconds: number | null;
+  movingTimeSeconds: number | null;
+  paceSecPerKm: number | null;
+  averageSpeedMps: number | null;
+  elevationDifferenceMeters: number | null;
+  averageGrade: number | null;
+  averageHeartRate: number | null;
+  averageCadence: number | null;
+  averageWatts: number | null;
+  raw?: any;
+}
+
+export interface CanonicalBestEffort {
+  activityId: string;
+  name: string;
+  distanceMeters: number | null;
+  elapsedTimeSeconds: number | null;
+  movingTimeSeconds: number | null;
+  paceSecPerKm: number | null;
+  startDate: string | null;
+  startIndex: number | null;
+  endIndex: number | null;
+  averageHeartRate: number | null;
+  maxHeartRate: number | null;
+  raw?: any;
 }
 
 export interface DailyWellnessLog {
