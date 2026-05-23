@@ -16,7 +16,7 @@ export function formatDuration(seconds: number | undefined): string {
   if (!isRealNumber(seconds)) return '—';
   const h = Math.floor(seconds! / 3600);
   const m = Math.floor((seconds! % 3600) / 60);
-  const s = Math.round(seconds! % 60);
+  const s = Math.floor(seconds! % 60);
 
   const pad = (n: number) => String(n).padStart(2, '0');
   if (h > 0) {
@@ -48,8 +48,8 @@ export function getActivityDataHealth(act: any): ActivityHealthResult {
   const hasPaceMissing = act.distanceMeters > 0 && (!act.movingTimeSeconds || act.movingTimeSeconds <= 0);
   
   // Real HR stream check
-  const hasMissingHrStream = !!(act.averageHeartRate && !act.hasGps && !act.id);
-  const hasMissingPolyline = !!(act.hasGps && !act.notes);
+  const hasMissingHrStream = !!(act.averageHeartRate && (!act.hasStreams || !act.streamKeysAvailable || !act.streamKeysAvailable.includes('heartrate')));
+  const hasMissingPolyline = !!((act.distanceMeters && act.distanceMeters > 0) && (!act.map || (!act.map.polyline && !act.map.summary_polyline)));
 
   let overallHealth: 'GREEN' | 'YELLOW' | 'RED' = 'GREEN';
   let color = 'border-green-900/40 bg-green-950/10 text-green-400';

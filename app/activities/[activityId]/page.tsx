@@ -228,7 +228,7 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
   const canRenderCadence = !!stream?.cadence && stream.cadence.length > 0;
   
   // Calculate Terrain logic IF grade or elev exists
-  let terrainDistribution = null;
+  let terrainDistribution: { uphill: number, flat: number, downhill: number } | null = null;
   if (stream?.gradeSmooth && stream.gradeSmooth.length > 0) {
       let uph = 0; let flat = 0; let dwn = 0;
       stream.gradeSmooth.forEach(g => {
@@ -242,6 +242,57 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
           flat: Math.round((flat/tot)*100), 
           downhill: Math.round((dwn/tot)*100) 
       };
+  }
+
+  // Calculate HR Zones
+  const hrZonesRaw = athleteProfile?.hrZones; 
+  let hrDistribution: { z1: number, z2: number, z3: number, z4: number, z5: number, total: number } | null = null;
+  let hrZonesError = "";
+  if (!stream?.heartrate || stream.heartrate.length === 0) {
+      hrZonesError = "Heart rate stream data is required.";
+  } else if (!hrZonesRaw) {
+      hrZonesError = "Heart rate zones are required.";
+  } else {
+      hrDistribution = { z1: 0, z2: 0, z3: 0, z4: 0, z5: 0, total: 0 };
+      for (let i = 0; i < stream.heartrate.length - 1; i++) {
+          const hr = stream.heartrate[i];
+          const duration = stream.time![i+1] - stream.time![i];
+          if (duration > 0 && duration < 300) { 
+              if (hr >= hrZonesRaw.z5[0]) hrDistribution.z5 += duration;
+              else if (hr >= hrZonesRaw.z4[0]) hrDistribution.z4 += duration;
+              else if (hr >= hrZonesRaw.z3[0]) hrDistribution.z3 += duration;
+              else if (hr >= hrZonesRaw.z2[0]) hrDistribution.z2 += duration;
+              else if (hr >= hrZonesRaw.z1[0]) hrDistribution.z1 += duration;
+              hrDistribution.total += duration;
+          }
+      }
+  }
+
+  // Calculate Pace Zones
+  const paceZonesRaw = athleteProfile?.paceZones;
+  let paceDistribution: { z1: number, z2: number, z3: number, z4: number, z5: number, total: number } | null = null;
+  let paceZonesError = "";
+  const hasPaceData = stream?.velocitySmooth && stream.velocitySmooth.length > 0;
+  
+  if (!hasPaceData) {
+      paceZonesError = "Pace stream data is required.";
+  } else if (!paceZonesRaw) {
+      paceZonesError = "Pace zones are required.";
+  } else {
+      paceDistribution = { z1: 0, z2: 0, z3: 0, z4: 0, z5: 0, total: 0 };
+      for (let i = 0; i < stream.velocitySmooth!.length - 1; i++) {
+          const vel = stream.velocitySmooth![i];
+          const duration = stream.time![i+1] - stream.time![i];
+          if (duration > 0 && duration < 300 && vel > 0.5) {
+              const paceSecPerKm = 1000 / vel;
+              if (paceSecPerKm <= paceZonesRaw.z5[1]) paceDistribution.z5 += duration;
+              else if (paceSecPerKm <= paceZonesRaw.z4[1]) paceDistribution.z4 += duration;
+              else if (paceSecPerKm <= paceZonesRaw.z3[1]) paceDistribution.z3 += duration;
+              else if (paceSecPerKm <= paceZonesRaw.z2[1]) paceDistribution.z2 += duration;
+              else if (paceSecPerKm <= paceZonesRaw.z1[1]) paceDistribution.z1 += duration;
+              paceDistribution.total += duration;
+          }
+      }
   }
 
   const booleanIcon = (val: boolean) => val ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" /> : <XCircle className="w-3.5 h-3.5 text-zinc-700" />;
@@ -473,6 +524,74 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
                   </div>
                 </div>
              </div>
+          </div>
+        </div>
+
+        {/* DISTRIBUTIONS */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-[#111113] border border-zinc-800/80 rounded p-6">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-5 inline-flex items-center gap-2">
+              <Heart className="w-4 h-4 text-red-500" /> Heart Rate Distribution
+            </h3>
+            {hrZonesError ? (
+               <div className="w-full flex-1 py-8 h-[140px] flex items-center justify-center border border-dashed border-zinc-800/80 rounded">
+                  <span className="text-zinc-600/80 text-[10px] uppercase font-bold font-mono tracking-widest text-center px-4">{hrZonesError}</span>
+               </div>
+            ) : hrDistribution ? (
+                <div className="space-y-3 font-mono text-[10px]">
+                  {[
+                    { label: 'Z5 Max', val: hrDistribution.z5, num: 5 },
+                    { label: 'Z4 Threshold', val: hrDistribution.z4, num: 4 },
+                    { label: 'Z3 Tempo', val: hrDistribution.z3, num: 3 },
+                    { label: 'Z2 Aerobic', val: hrDistribution.z2, num: 2 },
+                    { label: 'Z1 Recovery', val: hrDistribution.z1, num: 1 }
+                  ].map((z, i) => {
+                      const pct = hrDistribution!.total > 0 ? (z.val / hrDistribution!.total) * 100 : 0;
+                      return (
+                         <div key={i} className="flex items-center gap-3">
+                            <div className="w-24 text-zinc-400 font-sans font-bold uppercase tracking-wider">{z.label}</div>
+                            <div className="flex-1 h-3 bg-zinc-900 rounded overflow-hidden">
+                               <div className="h-full bg-red-900" style={{ width: `${pct}%` }}></div>
+                            </div>
+                            <div className="w-16 text-right text-zinc-300">{formatDuration(z.val || undefined)}</div>
+                            <div className="w-10 text-right text-zinc-500">{Math.round(pct)}%</div>
+                         </div>
+                      );
+                  })}
+                </div>
+            ) : null}
+          </div>
+          <div className="bg-[#111113] border border-zinc-800/80 rounded p-6">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-5 inline-flex items-center gap-2">
+              <Activity className="w-4 h-4 text-indigo-500" /> Pace Zone Distribution
+            </h3>
+            {paceZonesError ? (
+               <div className="w-full flex-1 py-8 h-[140px] flex items-center justify-center border border-dashed border-zinc-800/80 rounded">
+                  <span className="text-zinc-600/80 text-[10px] uppercase font-bold font-mono tracking-widest text-center px-4">{paceZonesError}</span>
+               </div>
+            ) : paceDistribution ? (
+                <div className="space-y-3 font-mono text-[10px]">
+                  {[
+                    { label: 'Z5 Anaerobic', val: paceDistribution.z5, num: 5 },
+                    { label: 'Z4 Threshold', val: paceDistribution.z4, num: 4 },
+                    { label: 'Z3 Tempo', val: paceDistribution.z3, num: 3 },
+                    { label: 'Z2 Aerobic', val: paceDistribution.z2, num: 2 },
+                    { label: 'Z1 Recovery', val: paceDistribution.z1, num: 1 }
+                  ].map((z, i) => {
+                      const pct = paceDistribution!.total > 0 ? (z.val / paceDistribution!.total) * 100 : 0;
+                      return (
+                         <div key={i} className="flex items-center gap-3">
+                            <div className="w-28 text-zinc-400 font-sans font-bold uppercase tracking-wider">{z.label}</div>
+                            <div className="flex-1 h-3 bg-zinc-900 rounded overflow-hidden">
+                               <div className="h-full bg-indigo-900" style={{ width: `${pct}%` }}></div>
+                            </div>
+                            <div className="w-16 text-right text-zinc-300">{formatDuration(z.val || undefined)}</div>
+                            <div className="w-10 text-right text-zinc-500">{Math.round(pct)}%</div>
+                         </div>
+                      );
+                  })}
+                </div>
+            ) : null}
           </div>
         </div>
 

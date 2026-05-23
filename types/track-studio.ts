@@ -28,6 +28,20 @@ export interface AthleteProfile {
     aerobicThreshold?: number;
     maxHeartRate?: number;
   };
+  hrZones?: {
+    z1: [number, number]; // [min, max]
+    z2: [number, number];
+    z3: [number, number];
+    z4: [number, number];
+    z5: [number, number];
+  };
+  paceZones?: {
+    z1: [number, number]; // [min_sec_per_km, max_sec_per_km]
+    z2: [number, number];
+    z3: [number, number];
+    z4: [number, number];
+    z5: [number, number];
+  };
 }
 
 export interface Activity {
