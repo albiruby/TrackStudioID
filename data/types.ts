@@ -54,6 +54,7 @@ export interface CanonicalActivity {
   calories?: number;
   map?: {
       summary_polyline?: string;
+      polyline?: string;
   };
   startLatlng?: number[];
   endLatlng?: number[];
@@ -63,6 +64,26 @@ export interface CanonicalActivity {
   deviceName?: string;
   dataHealth?: string[];
   raw?: any;
+  updatedAt?: string;
+  
+  // detail sync fields
+  detailSyncedAt?: string;
+  rawDetailed?: any;
+  description?: string;
+  perceivedExertion?: number;
+  sufferScore?: number;
+  splitsMetric?: any[];
+  splitsStandard?: any[];
+  laps?: any[];
+  bestEfforts?: any[];
+  segmentEfforts?: any[];
+  elevHigh?: number;
+  elevLow?: number;
+  
+  // stream sync fields
+  streamsSyncedAt?: string;
+  hasStreams?: boolean;
+  streamKeysAvailable?: string[];
 }
 
 export interface DailyWellnessLog {
@@ -152,9 +173,21 @@ export interface AthleteProfileRecord {
 export interface CanonicalActivityStream {
   id?: string;
   activityId: string;
-  heartRateStream: number[];
-  altitudeStream?: number[];
-  distanceStream?: number[];
-  cadenceStream?: number[];
+  userId: string;
+  source: string;
+  time: number[] | null;
+  distance: number[] | null;
+  latlng: [number, number][] | null;
+  altitude: number[] | null;
+  velocitySmooth: number[] | null;
+  heartrate: number[] | null;
+  cadence: number[] | null;
+  watts: number[] | null;
+  temp: number[] | null;
+  gradeSmooth: number[] | null;
+  raw?: any;
+  syncedAt?: string;
+  updatedAt?: string;
+  dataHealth?: string[];
 }
 

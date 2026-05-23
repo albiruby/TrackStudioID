@@ -1,5 +1,6 @@
 export interface StravaConnection {
   provider: 'strava';
+  connected: boolean;
   athleteId: number;
   athleteUsername: string;
   athleteFirstname: string;

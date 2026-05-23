@@ -2,7 +2,30 @@ import { adminDb } from '../firebase/admin';
 import { StravaConnection, StravaTokenResponse } from './types';
 
 function getStravaAuthCollection(userId: string) {
-  return adminDb.collection('users').doc(userId).collection('privateConnections').doc('strava');
+  return adminDb.collection('users').doc(userId).collection('connections').doc('strava');
+}
+
+export async function getSafeStravaStatus(userId: string) {
+  const doc = await getStravaAuthCollection(userId).get();
+  if (!doc.exists) {
+    return {
+      connected: false,
+      reauthRequired: false,
+      isExpired: false,
+      lastSyncAt: null,
+      lastSyncError: null,
+    };
+  }
+  const data = doc.data() as StravaConnection;
+  return {
+    connected: data.connected !== false,
+    reauthRequired: !!data.reauthRequired,
+    isExpired: (data.expiresAt * 1000) < Date.now(),
+    athleteName: data.athleteFirstname ? `${data.athleteFirstname} ${data.athleteLastname || ''}`.trim() : data.athleteUsername,
+    lastSyncAt: data.lastSyncAt || null,
+    lastSyncError: data.lastSyncError || null,
+    scopes: data.scope,
+  };
 }
 
 export async function getStravaConnection(userId: string): Promise<StravaConnection | null> {

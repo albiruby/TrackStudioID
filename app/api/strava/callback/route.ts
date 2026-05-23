@@ -27,11 +27,23 @@ export async function GET(req: NextRequest) {
     return new NextResponse(htmlResponse(`Strava connection error: ${error}`, true), { headers: { 'Content-Type': 'text/html' } });
   }
 
-  if (!code || !state || !state.startsWith('uid_')) {
+  if (!code || !state) {
     return new NextResponse(htmlResponse('Invalid callback parameters', true), { headers: { 'Content-Type': 'text/html' } });
   }
 
-  const userId = state.replace('uid_', '');
+  // Validate state
+  const stateDoc = await adminDb.collection('oauth_states').doc(state).get();
+  if (!stateDoc.exists) {
+    return new NextResponse(htmlResponse('Invalid or expired state parameter', true), { headers: { 'Content-Type': 'text/html' } });
+  }
+
+  const userId = stateDoc.data()?.uid;
+  await adminDb.collection('oauth_states').doc(state).delete(); // single-use
+
+  if (!userId) {
+    return new NextResponse(htmlResponse('Could not identify user from state', true), { headers: { 'Content-Type': 'text/html' } });
+  }
+
   const clientId = process.env.STRAVA_CLIENT_ID;
   const clientSecret = process.env.STRAVA_CLIENT_SECRET;
 
@@ -59,9 +71,10 @@ export async function GET(req: NextRequest) {
 
     const data = await res.json();
 
-    // Store in Firestore users/{userId}/privateConnections/strava
-    await adminDb.collection('users').doc(userId).collection('privateConnections').doc('strava').set({
+    // Store in Firestore users/{userId}/connections/strava
+    await adminDb.collection('users').doc(userId).collection('connections').doc('strava').set({
       provider: 'strava',
+      connected: true,
       athleteId: data.athlete.id,
       athleteUsername: data.athlete.username || '',
       athleteFirstname: data.athlete.firstname || '',
@@ -72,10 +85,12 @@ export async function GET(req: NextRequest) {
       expiresAt: data.expires_at, // unix timestamp
       connectedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      lastSyncAt: null
+      lastSyncAt: null,
+      lastSyncError: null,
+      reauthRequired: false
     }, { merge: true });
 
-    // Also update athlete profile to show strava is connected
+    // Also update athlete profile to show strava is connected (safe summary)
     await adminDb.collection('users').doc(userId).set({
       stravaConnected: true,
       stravaAthleteId: String(data.athlete.id),

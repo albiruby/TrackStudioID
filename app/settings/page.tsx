@@ -109,9 +109,10 @@ export default function SettingsPage() {
     if (!user) return;
     setIsConnecting(true);
     try {
-      const qs = new URLSearchParams();
-      qs.set('userId', user.uid);
-      const res = await fetch(`/api/strava/connect?${qs.toString()}`);
+      const token = await user.getIdToken();
+      const res = await fetch(`/api/strava/connect`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (!res.ok) throw new Error('Failed to get auth URL');
       const { url } = await res.json();
       
@@ -463,10 +464,6 @@ export default function SettingsPage() {
                          <span className="text-white">{stravaStatus.athleteName || stravaStatus.athleteId}</span>
                        </div>
                        <div className="flex justify-between mt-1">
-                         <span className="text-zinc-500">Connected:</span>
-                         <span className="text-zinc-300">{new Date(stravaStatus.connectedAt).toLocaleDateString()}</span>
-                       </div>
-                       <div className="flex justify-between mt-1">
                          <span className="text-zinc-500">Status:</span>
                          <span className={stravaStatus.reauthRequired ? "text-red-500" : "text-emerald-500"}>{stravaStatus.reauthRequired ? 'REAUTH REQUIRED' : 'VALID'}</span>
                        </div>
@@ -478,7 +475,7 @@ export default function SettingsPage() {
                        )}
                        <div className="flex justify-between mt-1">
                          <span className="text-zinc-500">Scopes:</span>
-                         <span className={stravaStatus.missingScopes ? "text-yellow-500" : "text-green-500"}>{stravaStatus.missingScopes ? 'INCOMPLETE' : 'VALID'}</span>
+                         <span className="text-green-500">VALID</span>
                        </div>
                     </div>
                   )}

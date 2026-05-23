@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     const decodedToken = await adminAuth.verifyIdToken(token);
     const userId = decodedToken.uid;
 
-    await adminDb.collection('users').doc(userId).collection('privateConnections').doc('strava').delete();
+    await adminDb.collection('users').doc(userId).collection('connections').doc('strava').delete();
 
     await adminDb.collection('users').doc(userId).set({
       stravaConnected: false,

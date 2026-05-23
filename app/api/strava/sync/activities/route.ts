@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
     await batch.commit();
     
     // Update lastSyncAt on Strava connection
-    await adminDb.collection('users').doc(userId).collection('privateConnections').doc('strava').set({
+    await adminDb.collection('users').doc(userId).collection('connections').doc('strava').set({
         lastSyncAt: new Date().toISOString(),
         lastSyncError: null
     }, { merge: true });

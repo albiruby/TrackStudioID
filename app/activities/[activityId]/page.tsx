@@ -52,7 +52,7 @@ interface ActivityDetailPageProps {
 
 export default function ActivityDetailPage({ params }: ActivityDetailPageProps) {
   const router = useRouter();
-  const { athleteProfile, loading: authLoading } = useAuth();
+  const { user, athleteProfile, loading: authLoading } = useAuth();
   
   // Unwrapping params Promise in Next.js 15 style
   const { activityId } = use(params);
@@ -155,41 +155,27 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
   const calculatedPaceSec = computePaceFromDistanceTime(activity.distanceMeters, activity.movingTimeSeconds);
   const healthBadge = getActivityDataHealth(activity);
 
-  // Generate mock-compatible high-fidelity graph points if real streams are empty to avoid black charts
+  // Generate graph points based purely on real streams
   const getGraphDataPoints = () => {
-    if (stream && stream.heartRateStream && stream.heartRateStream.length > 0) {
-      return stream.heartRateStream.map((hr, idx) => ({
-        index: idx,
-        HeartRate: hr,
-        Altitude: stream.altitudeStream?.[idx] || 100 + idx * 0.1,
-        Distance: stream.distanceStream?.[idx] || idx * 10,
-        Cadence: stream.cadenceStream?.[idx] || 180,
-      }));
-    }
-
-    // High fidelity cardiovascular stream simulation if a manual activity doesn't have telemetry profiles
-    const mockPointsCount = 40;
-    const points = [];
-    const baseHr = activity.averageHeartRate || 142;
-    const baseElev = activity.elevationGainMeters || 20;
-
-    for (let i = 0; i < mockPointsCount; i++) {
-      const completionFraction = i / mockPointsCount;
-      const wave = Math.sin(completionFraction * Math.PI * 2);
-      const noise = Math.sin(completionFraction * Math.PI * 18) * 3;
-      
-      points.push({
-        index: i,
-        HeartRate: activity.hasHeartRate !== false ? Math.round(baseHr + wave * 10 + noise) : null,
-        Altitude: Math.round(baseElev * Math.sin(completionFraction * Math.PI) + 50),
-        Distance: Math.round((activity.distanceMeters / mockPointsCount) * i),
-        Cadence: activity.cadenceAvg ? Math.round(activity.cadenceAvg + Math.sin(completionFraction * Math.PI * 6) * 3) : null,
-      });
-    }
-    return points;
+    if (!stream || !stream.time) return [];
+    
+    return stream.time.map((t, idx) => ({
+      index: idx,
+      Time: t,
+      Distance: stream.distance?.[idx] || 0,
+      HeartRate: stream.heartrate?.[idx] ?? null,
+      Altitude: stream.altitude?.[idx] ?? null,
+      Cadence: stream.cadence?.[idx] ?? null,
+      Watts: stream.watts?.[idx] ?? null,
+      Velocity: stream.velocitySmooth?.[idx] ?? null,
+    }));
   };
 
   const chartData = getGraphDataPoints();
+
+  const hasAnyStreamKeys = activity.hasStreams || (stream?.time && stream.time.length > 0);
+  const canRenderHr = stream?.heartrate && stream.heartrate.length > 0;
+  const canRenderElev = stream?.altitude && stream.altitude.length > 0;
 
   return (
     <div className="min-h-screen bg-transparent text-zinc-100 flex flex-col p-6 sm:p-8 ">
@@ -200,20 +186,51 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
         <div className="flex justify-between items-center bg-[#111113] p-4 border border-white/10 rounded-lg">
           <button
             onClick={() => router.push('/')}
-            className="px-4 py-2 hover:bg-zinc-800/50 border border-white/10 hover:border-white/20 text-zinc-300 hover:text-white rounded text-xs tracking-wider uppercase cursor-pointer inline-flex items-center gap-2 transition-colors"
+            className="px-4 py-2 hover:bg-zinc-800/50 border border-white/10 hover:border-white/20 text-zinc-300 hover:text-white rounded text-[10px] sm:text-xs tracking-wider uppercase cursor-pointer inline-flex items-center gap-2 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Athletes Register</span>
+            <span className="hidden sm:inline">Athletes Register</span>
           </button>
 
-          <button
-            onClick={handleDelete}
-            disabled={isDeleting}
-            className="px-4 py-2 hover:bg-red-950/40 border border-white/10 hover:border-red-900/60 text-zinc-500 hover:text-red-400 rounded text-xs tracking-wider uppercase cursor-pointer inline-flex items-center gap-2 transition-colors"
-          >
-            <Trash2 className="w-4 h-4" />
-            <span>{isDeleting ? 'Erasing...' : 'Erase Record'}</span>
-          </button>
+          <div className="flex gap-2">
+            {activity.source === 'strava' && !activity.detailSyncedAt && (
+              <button
+                onClick={async () => {
+                  try {
+                    const token = await user?.getIdToken();
+                    const res = await fetch('/api/strava/sync/activity-detail', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ activityId: activity.id })
+                    });
+                    if (res.ok) {
+                      window.location.reload();
+                    } else {
+                      alert('Failed to sync details');
+                    }
+                  } catch (err) {
+                    console.error(err);
+                  }
+                }}
+                className="px-3 py-2 bg-emerald-950/40 hover:bg-emerald-900/60 border border-emerald-900/60 text-emerald-400 rounded text-[10px] sm:text-xs tracking-wider uppercase cursor-pointer inline-flex items-center gap-2 transition-colors"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Sync Details</span>
+              </button>
+            )}
+
+            <button
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="px-4 py-2 hover:bg-red-950/40 border border-white/10 hover:border-red-900/60 text-zinc-500 hover:text-red-400 rounded text-[10px] sm:text-xs tracking-wider uppercase cursor-pointer inline-flex items-center gap-2 transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>{isDeleting ? '...' : 'Erase'}</span>
+            </button>
+          </div>
         </div>
 
         {/* PRIMARY DISPLAY META */}
@@ -283,46 +300,88 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
         </div>
 
         {/* GRAPH DIAGRAM DISPLAY PANEL */}
-        {activity.hasHeartRate !== false && (
-          <div className="bg-[#111113] border border-white/10 rounded-lg p-6">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h3 className="text-sm font-bold uppercase tracking-tight text-white mb-1">Cardiorespiratory Form Stream</h3>
-                <p className="text-sm font-sans text-zinc-400">Live heart-rate (BPM) decay plotted chronological across length of the workout session</p>
-              </div>
+        <div className="bg-[#111113] border border-white/10 rounded-lg p-6">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-tight text-white mb-1">Cardiorespiratory Form Stream</h3>
+              <p className="text-sm font-sans text-zinc-400">Live heart-rate (BPM) decay plotted chronological across length of the workout session</p>
             </div>
+            
+            {activity.source === 'strava' && !hasAnyStreamKeys && (
+              <button
+                onClick={async () => {
+                  try {
+                    const token = await user?.getIdToken();
+                    const res = await fetch('/api/strava/sync/activity-streams', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                      },
+                      body: JSON.stringify({ activityId: activity.id })
+                    });
+                    if (res.ok) {
+                      window.location.reload();
+                    } else {
+                      alert('Failed to sync streams');
+                    }
+                  } catch (err) {
+                    console.error('Failed to sync streams', err);
+                  }
+                }}
+                className="px-3 py-1.5 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-900/60 text-purple-400 rounded text-[10px] tracking-wider uppercase cursor-pointer transition-colors"
+              >
+                Sync Streams
+              </button>
+            )}
+          </div>
 
+          {!hasAnyStreamKeys ? (
+             <div className="h-64 flex flex-col items-center justify-center border border-dashed border-white/10 rounded bg-black/20">
+                <span className="text-zinc-500 text-xs font-mono font-bold uppercase tracking-widest">Stream data required</span>
+             </div>
+          ) : (
             <div className="h-64 font-mono">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
                   <XAxis dataKey="Distance" style={{ fontSize: 9, fontFamily: 'monospace' }} stroke="#3f3f46" tickFormatter={(val) => `${(val / 1000).toFixed(1)}k`} />
-                  <YAxis domain={['dataMin - 10', 'dataMax + 10']} style={{ fontSize: 9, fontFamily: 'monospace' }} stroke="#3f3f46" />
+                  <YAxis yAxisId="left" domain={['dataMin - 10', 'dataMax + 10']} style={{ fontSize: 9, fontFamily: 'monospace' }} stroke="#3f3f46" />
+                  <YAxis yAxisId="right" orientation="right" domain={['dataMin', 'dataMax']} hide />
                   <Tooltip contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a', borderRadius: '4px' }} labelStyle={{ color: '#fff' }} />
-                  <Line type="monotone" dataKey="HeartRate" name="Heart Rate (BPM)" stroke="#ef4444" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="Altitude" name="Altitude (m)" stroke="#3b82f6" strokeWidth={0.8} dot={false} />
+                  {canRenderHr && (
+                    <Line yAxisId="left" type="monotone" dataKey="HeartRate" name="Heart Rate (BPM)" stroke="#ef4444" strokeWidth={2} dot={false} isAnimationActive={false} />
+                  )}
+                  {canRenderElev && (
+                    <Line yAxisId="right" type="monotone" dataKey="Altitude" name="Altitude (m)" stroke="#3b82f6" strokeWidth={0.8} dot={false} isAnimationActive={false} />
+                  )}
                 </LineChart>
               </ResponsiveContainer>
+              {(!canRenderHr && !canRenderElev) && (
+                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <span className="text-zinc-500 text-xs font-mono bg-[#111113]/80 p-2 uppercase">This activity does not include this sensor stream.</span>
+                 </div>
+              )}
             </div>
+          )}
 
-            <div className="grid grid-cols-2 gap-6 mt-6 border-t border-white/10 pt-5">
-              <div className="flex items-center gap-3">
-                <Heart className="w-5 h-5 text-red-500" />
-                <div>
-                  <span className="text-sm font-sans text-zinc-400 block uppercase font-bold">Weighted HR Rating</span>
-                  <span className="text-sm font-bold text-white">{activity.averageHeartRate || '—'} bpm / {activity.maxHeartRate || '—'} max</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <Footprints className="w-5 h-5 text-yellow-550" />
-                <div>
-                  <span className="text-sm font-sans text-zinc-400 block uppercase font-bold">Step Rate Cadence</span>
-                  <span className="text-sm font-bold text-white">{activity.cadenceAvg || '—'} rpm avg</span>
-                </div>
+          <div className="grid grid-cols-2 gap-6 mt-6 border-t border-white/10 pt-5">
+            <div className="flex items-center gap-3">
+              <Heart className="w-5 h-5 text-red-500" />
+              <div>
+                <span className="text-sm font-sans text-zinc-400 block uppercase font-bold">Weighted HR Rating</span>
+                <span className="text-sm font-bold text-white">{activity.averageHeartRate || '—'} bpm / {activity.maxHeartRate || '—'} max</span>
               </div>
             </div>
-
+            <div className="flex items-center gap-3">
+              <Footprints className="w-5 h-5 text-yellow-550" />
+              <div>
+                <span className="text-sm font-sans text-zinc-400 block uppercase font-bold">Step Rate Cadence</span>
+                <span className="text-sm font-bold text-white">{activity.cadenceAvg || '—'} rpm avg</span>
+              </div>
+            </div>
           </div>
-        )}
+
+        </div>
 
         {/* NOTES REFLECTIONS SHEETS */}
         <div className="bg-[#111113] border border-white/10 rounded-lg p-6">

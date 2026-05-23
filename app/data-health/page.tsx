@@ -362,6 +362,18 @@ export default function DataHealthPage() {
           affectedName: act.name
         });
       }
+
+      // 9. activities missing detailSyncedAt
+      if (!act.detailSyncedAt) {
+        detectedWarnings.push({
+          id: `no_detailSyncedAt_${act.id}`,
+          category: 'syncedAt',
+          severity: 'low',
+          message: `Activity is missing detail sync. High-resolution metrics like laps, best efforts, and full polyline are unavailable.`,
+          affectedId: act.id,
+          affectedName: act.name
+        });
+      }
     });
 
     setWarnings(detectedWarnings);
@@ -613,6 +625,10 @@ export default function DataHealthPage() {
                  const noPower = total - withPower;
                  const withCadence = syncedActs.filter(a => a.hasCadence || (a.cadenceAvg && a.cadenceAvg > 0)).length;
                  const noCadence = total - withCadence;
+                 const withDetail = syncedActs.filter(a => !!a.detailSyncedAt).length;
+                 const noDetail = total - withDetail;
+                 const withStreams = syncedActs.filter(a => !!a.streamsSyncedAt).length;
+                 const noStreams = total - withStreams;
                  
                  return (
                    <div className="border border-white/10 p-4 rounded bg-zinc-800/50/20 space-y-3 text-xs text-zinc-400">
@@ -625,7 +641,9 @@ export default function DataHealthPage() {
                          <div className="text-center"><span className="block text-[9px] uppercase">Rides</span><span className="font-bold text-zinc-300">{rides}</span></div>
                          <div className="text-center"><span className="block text-[9px] uppercase">Other</span><span className="font-bold text-zinc-300">{others}</span></div>
                       </div>
-                      <div className="grid grid-cols-4 gap-2 pt-1 text-center">
+                      <div className="grid grid-cols-6 gap-2 pt-1 text-center">
+                         <div><span className="block text-[8px] uppercase">W/ DETAIL</span><span className="font-bold text-zinc-100 block">{withDetail}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noDetail}</span></div>
+                         <div><span className="block text-[8px] uppercase">W/ STREAM</span><span className="font-bold text-indigo-400 block">{withStreams}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noStreams}</span></div>
                          <div><span className="block text-[8px] uppercase">W/ GPS</span><span className="font-bold text-emerald-400 block">{withGps}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noGps}</span></div>
                          <div><span className="block text-[8px] uppercase">W/ HR</span><span className="font-bold text-[#FC5200] block">{withHr}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noHr}</span></div>
                          <div><span className="block text-[8px] uppercase">W/ POWER</span><span className="font-bold text-purple-400 block">{withPower}</span><span className="text-[9px] block text-zinc-600 uppercase mt-0.5">X {noPower}</span></div>

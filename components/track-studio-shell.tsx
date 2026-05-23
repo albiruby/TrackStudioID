@@ -894,7 +894,7 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
                 ) : (
                   <div className="py-16 border border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-center">
                     <Database className="w-8 h-8 text-zinc-600 mb-3" />
-                    <p className="text-sm text-zinc-400">Belum ada aktivitas. Hubungkan Strava dan lakukan sinkronisasi untuk menampilkan data aktivitas.</p>
+                    <p className="text-sm text-zinc-400">No activities synced yet. Connect Strava and sync your activities.</p>
                   </div>
                 )}
               </div>
