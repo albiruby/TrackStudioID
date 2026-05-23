@@ -1,0 +1,67 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net - Default Deny Everything
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. User & Athlete Profile Rules
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Activity Streams (Nested Subcollection)
+      match /activityStreams/{activityId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Private Connections (Nested Subcollection)
+      match /privateConnections/{connectionId} {
+        allow read, write: if false; // Server-side admin only
+      }
+
+      // Activities
+      match /activities/{activityId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Keep /athletes/ collection for full support of any legacy routes
+    match /athletes/{athleteId} {
+      allow read, write: if request.auth != null && request.auth.uid == athleteId;
+
+      match /activities/{activityId} {
+        allow read, write: if request.auth != null && request.auth.uid == athleteId;
+      }
+    }
+
+    // 3. User Activities Rules
+    match /activities/{activityId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // 4. Daily Wellness Logs Rules
+    match /wellness/{date} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // 5. Training Loads Rules
+    match /trainingLoads/{loadId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /daily_loads/{loadId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+
+    // 6. Athlete Gear Rules
+    match /gear/{gearId} {
+      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+    }
+  }
+}

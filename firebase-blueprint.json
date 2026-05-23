@@ -1,0 +1,78 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User account security record",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "settings": { "type": "object" }
+      },
+      "required": ["uid", "email"]
+    },
+    "AthleteProfile": {
+      "title": "AthleteProfile",
+      "description": "Premium Sports Science Athlete profile record",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "weightKg": { "type": "number" },
+        "heightCm": { "type": "number" },
+        "restingHR": { "type": "number" },
+        "maxHR": { "type": "number" },
+        "thresholdHR": { "type": "number" },
+        "vdotScore": { "type": "number" },
+        "stravaConnected": { "type": "boolean" },
+        "stravaAthleteId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "Individual endurance or strength activity record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "athleteUid": { "type": "string" },
+        "externalId": { "type": "string" },
+        "name": { "type": "string" },
+        "sportType": { "type": "string", "enum": ["Run", "Ride", "Swim", "Walk", "Hike", "Other"] },
+        "distanceMeters": { "type": "number" },
+        "movingTimeSec": { "type": "number" },
+        "elapsedTimeSec": { "type": "number" },
+        "totalElevationGainMeters": { "type": "number" },
+        "startDateLocal": { "type": "string" },
+        "averageHR": { "type": "number" },
+        "maxHR": { "type": "number" },
+        "trainingLoad": { "type": "number" },
+        "cadenceAvg": { "type": "number" },
+        "rpe": { "type": "number" },
+        "notes": { "type": "string" }
+      },
+      "required": ["id", "athleteUid", "name", "distanceMeters", "movingTimeSec", "startDateLocal"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile collection keying by UID"
+    },
+    "/athletes/{athleteId}": {
+      "schema": "AthleteProfile",
+      "description": "Athlete profile collection keying by UID"
+    },
+    "/athletes/{athleteId}/activities/{activityId}": {
+      "schema": "Activity",
+      "description": "Activities subcollection for structured physiological loads"
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "name": "Track.Studio",
+  "description": "High-fidelity biometric analytical cockpit for endurance athletes, featuring deterministic training stress scores, ACWR modeling, gear wear trackers, and local morning health logs.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: Inter, var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: "Space Grotesk", var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", var(--font-mono), ui-monospace, SFMono-Regular, monospace;
+
+  --color-bg-base: #050505;
+  --color-bg-surface: #111113;
+  --color-bg-elevated: #18181B;
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-strong: rgba(255, 255, 255, 0.14);
+  --color-text-primary: #F5F5F5;
+  --color-text-secondary: #A1A1AA;
+  --color-text-muted: #71717A;
+  --color-accent-orange: #FC5200;
+  --color-accent-hover: #FF6A1A;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+  }
+  
+  /* Utilities for typography to easily use font-heading */
+  h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: var(--font-heading);
+  }
+}
