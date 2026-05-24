@@ -72,7 +72,7 @@ export default function SettingsPage() {
          setCheckStrava(prev => !prev);
       } else {
          const err = await res.json();
-         alert('Failed to sync activities: ' + (err.error || 'Unknown error'));
+         alert('Failed to sync activities: ' + (err.error || 'Unspecified error'));
       }
     } catch(e) {
        console.error(e);

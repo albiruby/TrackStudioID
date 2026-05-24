@@ -38,7 +38,8 @@ import {
   saveCustomWorkout,
   deleteCustomWorkout
 } from '../../lib/firebase/firestore';
-import { DailyTrainingLoad, CanonicalActivity } from '../../data/types';
+import { DailyTrainingLoad, CanonicalActivity } from '../../lib/data/types';
+import { formatDistanceKm, formatDuration, formatElevation, formatPace, formatHeartRate } from '../../lib/data/dataLaw';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -507,7 +508,7 @@ export default function TrainingPage() {
               }`}
                 id="tab_pmc_trigger"
             >
-              Load Projections (PMC)
+              Load Estimates (PMC)
             </button>
           </div>
         </div>
@@ -718,7 +719,7 @@ export default function TrainingPage() {
                             </span>
                           ) : (isFuture && simulatedLoad > 0) ? (
                             <span className="text-[8px] font-mono text-cyan-400 font-bold uppercase block leading-none">
-                              Proj: {simulatedLoad} TSS
+                              Estimated: {simulatedLoad} TSS
                             </span>
                           ) : null}
                         </div>
@@ -804,7 +805,7 @@ export default function TrainingPage() {
                               <span>Actual Load: {dayLoadRecord.trainingLoad} TSS</span>
                             )}
                             {dayPlannedTss > 0 && (
-                              <span className="text-cyan-400">Projected: {dayPlannedTss} TSS</span>
+                              <span className="text-cyan-400">Estimated: {dayPlannedTss} TSS</span>
                             )}
                             <button
                               onClick={() => triggerScheduleModal(dateStr)}
@@ -838,9 +839,9 @@ export default function TrainingPage() {
                                   </div>
                                   <h6 className="text-xs font-bold text-white uppercase mt-1 leading-normal">{act.name}</h6>
                                   <div className="flex gap-4 text-[10px] text-zinc-400 font-mono font-semibold uppercase mt-1">
-                                    {act.distanceMeters > 0 && <span>Dist: {(act.distanceMeters / 1000).toFixed(1)} km</span>}
-                                    {act.movingTimeSeconds > 0 && <span>Time: {Math.round(act.movingTimeSeconds / 60)} min</span>}
-                                    {act.averageHeartRate && <span>HR: {act.averageHeartRate} bpm</span>}
+                                    {act.distanceMeters > 0 && <span>Dist: {formatDistanceKm(act.distanceMeters)}</span>}
+                                    {act.movingTimeSeconds > 0 && <span>Time: {formatDuration(act.movingTimeSeconds)}</span>}
+                                    {act.averageHeartRate && <span>HR: {formatHeartRate(act.averageHeartRate)}</span>}
                                   </div>
                                 </div>
                               ))
@@ -874,8 +875,8 @@ export default function TrainingPage() {
                                   </div>
 
                                   <div className="flex gap-4 pt-1 text-[10px] text-zinc-500 font-mono font-bold uppercase border-t border-white/5">
-                                    {w.estimatedDurationSeconds > 0 && <span>Time: {Math.round(w.estimatedDurationSeconds / 60)} min</span>}
-                                    {w.estimatedDistanceMeters > 0 && <span>Dist: {(w.estimatedDistanceMeters / 1000).toFixed(1)} km</span>}
+                                    {w.estimatedDurationSeconds > 0 && <span>Time: {formatDuration(w.estimatedDurationSeconds)}</span>}
+                                    {w.estimatedDistanceMeters > 0 && <span>Dist: {formatDistanceKm(w.estimatedDistanceMeters)}</span>}
                                   </div>
 
                                   {/* Edit capabilities only for custom manual workouts */}
@@ -1095,7 +1096,7 @@ export default function TrainingPage() {
                   </p>
                 </div>
                 <span className="px-3 py-1 bg-[#FC5200]/10 border border-[#FC5200]/20 text-[#FC5200] text-[10px] font-bold uppercase rounded tracking-wider font-mono">
-                  PROJECTION MODULE
+                  ESTIMATION MODULE
                 </span>
               </div>
 
@@ -1143,13 +1144,13 @@ export default function TrainingPage() {
                     </div>
                   ) : (
                     <div className="p-4 bg-cyan-950/20 border border-cyan-400/10 rounded text-[10px] text-zinc-400 leading-normal uppercase font-semibold">
-                      This projections mode automatically aggregates the Estimated TSS values of workouts planned on your Training Calendar dates!
+                      This estimation mode automatically aggregates the Estimated TSS values of workouts planned on your Training Calendar dates!
                     </div>
                   )}
 
                   <div>
                     <div className="flex justify-between text-xs font-semibold uppercase mb-2">
-                      <span className="text-zinc-400 font-mono">Projection Horizon</span>
+                      <span className="text-zinc-400 font-mono">Estimation Horizon</span>
                       <span className="text-[#FC5200] font-mono">{planDays} Days</span>
                     </div>
                     <input 
@@ -1160,12 +1161,12 @@ export default function TrainingPage() {
                   </div>
 
                   <div className="p-4 bg-zinc-950/60 border border-white/5 rounded text-[10px] text-zinc-400 leading-relaxed uppercase font-semibold">
-                    💡 Simulation parameters represent ideal mathematical projections only. They do not overwrite historical logged activities.
+                    💡 Estimation parameters represent ideal mathematical estimates only. They do not overwrite historical logged activities.
                   </div>
                 </div>
 
                 <div className="lg:col-span-2 space-y-4">
-                  <h3 className="text-xs text-zinc-400 font-bold tracking-wider uppercase">Projected Trend Projections</h3>
+                  <h3 className="text-xs text-zinc-400 font-bold tracking-wider uppercase">Estimated Trend</h3>
                   
                   <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -1179,9 +1180,9 @@ export default function TrainingPage() {
                           labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
                         />
                         <Legend verticalAlign="top" height={36} iconSize={10} iconType="circle" wrapperStyle={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }} />
-                        <Line type="monotone" dataKey="ctl" name="Projected Fitness (CTL)" stroke="#3b82f6" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-                        <Line type="monotone" dataKey="atl" name="Projected Fatigue (ATL)" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                        <Line type="monotone" dataKey="tsb" name="Projected Form (TSB)" stroke="#10b981" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                        <Line type="monotone" dataKey="ctl" name="Estimated Fitness (CTL)" stroke="#3b82f6" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                        <Line type="monotone" dataKey="atl" name="Estimated Fatigue (ATL)" stroke="#f59e0b" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                        <Line type="monotone" dataKey="tsb" name="Estimated Form (TSB)" stroke="#10b981" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
                       </ComposedChart>
                     </ResponsiveContainer>
                   </div>

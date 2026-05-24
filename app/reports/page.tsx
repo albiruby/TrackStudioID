@@ -22,14 +22,17 @@ import {
   Navigation,
   Activity,
   ChevronRight,
-  Heart
+  Heart,
+  Loader2
 } from 'lucide-react';
 import { getActivities, getAthleteProfile, saveReportSummary } from '../../lib/firebase/firestore';
-import { CanonicalActivity } from '../../data/types';
+import { CanonicalActivity } from '../../lib/data/types';
 import { aggregateActivities, ReportAggregationResult } from '../../lib/analytics/reportAggregation';
-import { formatDistanceKm, formatDuration } from '../../lib/data/dataLaw';
+import { formatDistanceKm, formatDuration, formatElevation, formatPace } from '../../lib/data/dataLaw';
 import { mapReportToPayload } from '../../lib/export/exportPayload';
-import ExportCardStudio from '../../components/export/ExportCardStudio';
+import dynamic from 'next/dynamic';
+
+const ExportCardStudio = dynamic(() => import('../../components/export/ExportCardStudio'), { ssr: false, loading: () => <div className="p-8 text-center text-zinc-400 flex flex-col items-center justify-center border border-zinc-800 bg-zinc-900 rounded-xl"><Loader2 className="h-8 w-8 text-[#FC5200] animate-spin mb-4" />Loading Studio Engine...</div> });
 
 // Import Recharts components directly (handled correctly on client)
 import {
@@ -82,7 +85,7 @@ export default function ReportsPage() {
       if (!user) return;
       try {
         const [actData, profile] = await Promise.all([
-          getActivities(user.uid),
+          getActivities(user.uid, 500),
           getAthleteProfile(user.uid)
         ]);
         const loadedActivities = actData || [];
@@ -220,29 +223,6 @@ export default function ReportsPage() {
     return activities.find(a => a.id === reportData.highestElevationActivityId) || null;
   }, [activities, reportData]);
 
-  // Local helper formatters utilizing user settings
-  const renderDistance = (meters: number) => {
-    if (isMetric) {
-      return `${(meters / 1000).toFixed(2)} km`;
-    }
-    return `${(meters / 1609.344).toFixed(2)} mi`;
-  };
-
-  const renderElevation = (meters: number) => {
-    if (isMetric) {
-      return `${Math.round(meters)} m`;
-    }
-    return `${Math.round(meters * 3.28084)} ft`;
-  };
-
-  const renderPace = (secondsPerKm: number) => {
-    if (!secondsPerKm || isNaN(secondsPerKm) || secondsPerKm === Infinity) return '--:--';
-    const paceSec = isMetric ? secondsPerKm : secondsPerKm * 1.609344;
-    const mins = Math.floor(paceSec / 60);
-    const secs = Math.round(paceSec % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')} /${isMetric ? 'km' : 'mi'}`;
-  };
-
   // CSV Data Sync Downloader
   const handleExportCsv = () => {
     if (!reportData || activities.length === 0) return;
@@ -295,7 +275,7 @@ export default function ReportsPage() {
 
   const handleShareReport = () => {
     if (!reportData) return;
-    const shareText = `Track.Studio Performance Summary (${periodStart} to ${periodEnd}): Total Distance ${renderDistance(reportData.totalDistanceMeters)}, Active Days ${reportData.activeDays}, Workouts Logged ${reportData.totalActivities}. Calculated purely from real fitness records!`;
+    const shareText = `Track.Studio Performance Summary (${periodStart} to ${periodEnd}): Total Distance ${formatDistanceKm(reportData.totalDistanceMeters, isMetric)}, Active Days ${reportData.activeDays}, Workouts Logged ${reportData.totalActivities}. Calculated purely from real fitness records!`;
     
     try {
       navigator.clipboard.writeText(shareText);
@@ -535,7 +515,7 @@ export default function ReportsPage() {
               <div className="bg-[#111113] border border-white/10 rounded-lg p-5">
                 <span className="text-[10px] text-zinc-500 font-bold uppercase block tracking-wider font-mono">Total Distance</span>
                 <span className="text-2xl font-black text-white font-mono mt-2 block tracking-tight">
-                  {renderDistance(reportData.totalDistanceMeters)}
+                  {formatDistanceKm(reportData.totalDistanceMeters, isMetric)}
                 </span>
                 <span className="text-[10px] text-zinc-400 uppercase font-mono font-bold block mt-1.5">Cumulative mileage summary</span>
               </div>
@@ -553,7 +533,7 @@ export default function ReportsPage() {
               <div className="bg-[#111113] border border-white/10 rounded-lg p-5">
                 <span className="text-[10px] text-zinc-500 font-bold uppercase block tracking-wider font-mono">Total Vert Gain</span>
                 <span className="text-2xl font-black text-emerald-400 font-mono mt-2 block tracking-tight">
-                  {renderElevation(reportData.totalElevationGainMeters)}
+                  {formatElevation(reportData.totalElevationGainMeters, isMetric)}
                 </span>
                 <span className="text-[10px] text-zinc-400 uppercase font-mono font-bold block mt-1.5">Cumulated altitude climb</span>
               </div>
@@ -687,7 +667,7 @@ export default function ReportsPage() {
                         <Tooltip
                           contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '4px' }}
                           labelClassName="text-white text-xs font-mono font-bold uppercase"
-                          formatter={(value: any) => [renderElevation(value), 'Elevation']}
+                          formatter={(value: any) => [formatElevation(value, isMetric), 'Elevation']}
                         />
                         <Area type="monotone" dataKey="elevation" stroke="#10B981" fill="#10B981" fillOpacity={0.1} />
                       </AreaChart>
@@ -710,11 +690,11 @@ export default function ReportsPage() {
                 <div>
                   <span className="text-[10px] text-zinc-500 font-bold uppercase block tracking-wider font-mono">Average Pace Metric</span>
                   <span className="text-2xl font-black text-[#FC5200] font-mono mt-2 block tracking-tight">
-                    {renderPace(reportData.averagePaceSecPerKm)}
+                    {formatPace(reportData.averagePaceSecPerKm, isMetric)}
                   </span>
                 </div>
                 <div className="border-t border-white/5 pt-3 mt-4 text-[11px] text-zinc-400 font-mono">
-                  Calculated from <strong className="text-white">{renderDistance(reportData.totalDistanceMeters)}</strong> in <strong className="text-white">{formatDuration(reportData.totalMovingTimeSeconds)}</strong>
+                  Calculated from <strong className="text-white">{formatDistanceKm(reportData.totalDistanceMeters, isMetric)}</strong> in <strong className="text-white">{formatDuration(reportData.totalMovingTimeSeconds)}</strong>
                 </div>
               </div>
 
@@ -744,7 +724,7 @@ export default function ReportsPage() {
                   </span>
                 </div>
                 <div className="border-t border-white/5 pt-3 mt-4 text-[11px] text-zinc-400 font-mono flex items-center justify-between">
-                  <span>Distance: <strong className="text-white font-mono">{renderDistance(reportData.longestDistanceMeters)}</strong></span>
+                  <span>Distance: <strong className="text-white font-mono">{formatDistanceKm(reportData.longestDistanceMeters, isMetric)}</strong></span>
                   {longestActivity && (
                     <button
                       onClick={() => router.push(`/activities/${longestActivity.id}`)}

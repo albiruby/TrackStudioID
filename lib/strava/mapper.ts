@@ -66,12 +66,12 @@ export function mapStravaActivityToLocalSchema(userId: string, raw: any): Canoni
     syncedAt: new Date().toISOString(),
     
     name: raw.name || 'Untitled Activity',
-    sportType: raw.sport_type || raw.type || 'Unknown',
+    sportType: raw.sport_type || raw.type || 'Unspecified',
     distanceMeters: distanceMeters ?? 0,
     movingTimeSeconds: movingTimeSeconds ?? 0,
     elapsedTimeSeconds: elapsedTimeSeconds ?? 0,
     startDate: startDate || '',
-    startDateLocal: startDateLocal || undefined,
+    startDateLocal: startDateLocal || startDate || '',
     timezone: raw.timezone,
     
     averagePaceSecPerKm,

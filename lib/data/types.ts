@@ -7,7 +7,7 @@
 export interface CanonicalActivity {
   id: string;
   userId: string;
-  source: 'strava' | 'intervals' | 'manual';
+  source: 'strava' | 'intervals' | 'manual' | string;
   externalId?: string;
   name: string;
   sportType: string; // 'Run' | 'Ride' | 'Swim' | 'Walk' | 'Hike' | 'Other'
@@ -18,11 +18,14 @@ export interface CanonicalActivity {
   movingTimeSeconds: number;
   elapsedTimeSeconds: number;
   averageSpeedMps?: number;
-  averagePaceSecPerKm?: number;
+  averageSpeed?: number;
+  maxSpeed?: number;
+  averagePaceSecPerKm?: number | null;
   averageHeartRate?: number;
   maxHeartRate?: number;
   hasHeartRate: boolean;
   averageCadence?: number;
+  cadenceAvg?: number;
   hasCadence: boolean;
   averageWatts?: number;
   maxWatts?: number;
@@ -30,12 +33,15 @@ export interface CanonicalActivity {
   deviceWatts?: boolean;
   hasPower: boolean;
   calories?: number;
+  kilojoules?: number;
   elevationGainMeters?: number;
   hasGps: boolean;
   polyline?: string;
   summaryPolyline?: string;
   startLatLng?: number[];
   endLatLng?: number[];
+  startLatlng?: number[];
+  endLatlng?: number[];
   deviceName?: string;
   temperatureCelsius?: number;
   gearId?: string;
@@ -43,52 +49,98 @@ export interface CanonicalActivity {
   kudosCount?: number;
   commentCount?: number;
   raw?: any;
-  dataHealth: 'excellent' | 'moderate' | 'poor';
-  createdAt: string;
-  updatedAt: string;
+  dataHealth: 'excellent' | 'moderate' | 'poor' | string[] | any;
+  createdAt?: string;
+  updatedAt?: string;
   syncedAt?: string;
   // Dynamic fields for back compatibility if needed
   trainingLoad?: number; 
   rpe?: number;
   notes?: string;
+
+  // detail sync fields
+  detailSyncedAt?: string;
+  rawDetailed?: any;
+  description?: string;
+  perceivedExertion?: number;
+  sufferScore?: number;
+  splitsMetric?: any[];
+  splitsStandard?: any[];
+  laps?: any[];
+  bestEfforts?: any[];
+  segmentEfforts?: any[];
+  elevHigh?: number;
+  elevLow?: number;
+  
+  // stream sync fields
+  streamsSyncedAt?: string;
+  hasStreams?: boolean;
+  streamKeysAvailable?: string[];
+  // structured data sync fields
+  structuredDataSyncedAt?: string;
+  hasLaps?: boolean;
+  hasSplits?: boolean;
+  hasBestEfforts?: boolean;
 }
 
 export interface CanonicalActivityStream {
+  id?: string;
   activityId: string;
-  time?: number[];
-  distance?: number[];
-  velocitySmooth?: number[];
-  heartrate?: number[];
-  cadence?: number[];
-  watts?: number[];
-  altitude?: number[];
-  gradeSmooth?: number[];
-  temp?: number[];
-  latlng?: number[][];
+  userId: string;
+  source: string;
+  time?: number[] | null;
+  distance?: number[] | null;
+  velocitySmooth?: number[] | null;
+  heartrate?: number[] | null;
+  cadence?: number[] | null;
+  watts?: number[] | null;
+  altitude?: number[] | null;
+  gradeSmooth?: number[] | null;
+  temp?: number[] | null;
+  latlng?: number[][] | null;
+  raw?: any;
+  syncedAt?: string;
+  updatedAt?: string;
+  dataHealth?: string[];
 }
 
 export interface CanonicalLap {
   id: string;
   activityId: string;
   lapIndex: number;
+  name?: string;
   distanceMeters: number;
   movingTimeSeconds: number;
   elapsedTimeSeconds: number;
+  paceSecPerKm?: number | null;
   averageSpeedMps: number;
+  maxSpeedMps?: number | null;
   averageHeartRate?: number;
   maxHeartRate?: number;
   averageCadence?: number;
   averageWatts?: number;
+  elevationGainMeters?: number | null;
+  startIndex?: number | null;
+  endIndex?: number | null;
+  raw?: any;
 }
 
 export interface CanonicalSplit {
   splitIndex: number;
+  splitType?: "metric" | "standard";
+  activityId?: string;
   distanceMeters: number;
   elapsedTimeSeconds: number;
   movingTimeSeconds: number;
+  paceSecPerKm?: number | null;
   averageSpeedMps: number;
+  elevationDifferenceMeters?: number | null;
+  averageGrade?: number | null;
   averageHeartRate?: number;
-  averagePaceSecPerKm: number;
+  averageCadence?: number | null;
+  averageWatts?: number | null;
+  averagePaceSecPerKm?: number;
+  raw?: any;
 }
 
 export interface CanonicalBestEffort {
@@ -98,7 +150,13 @@ export interface CanonicalBestEffort {
   elapsedTimeSeconds: number;
   movingTimeSeconds: number;
   distanceMeters: number;
+  paceSecPerKm?: number | null;
   startDate: string;
+  startIndex?: number | null;
+  endIndex?: number | null;
+  averageHeartRate?: number | null;
+  maxHeartRate?: number | null;
+  raw?: any;
 }
 
 export interface CanonicalGear {

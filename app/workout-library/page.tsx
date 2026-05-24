@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
 import { getImportedWorkouts, saveCustomWorkout, deleteCustomWorkout } from '../../lib/firebase/firestore';
+import { formatDuration, formatDistanceKm } from '../../lib/data/dataLaw';
 import { 
   ArrowLeft, 
   Dumbbell, 
@@ -220,21 +221,7 @@ export default function WorkoutLibraryPage() {
     }
   };
 
-  // Human readable formatters
-  const formatDuration = (sec?: number) => {
-    if (!sec) return '—';
-    const hrs = Math.floor(sec / 3600);
-    const mins = Math.floor((sec % 3600) / 60);
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m`;
-    }
-    return `${mins}m`;
-  };
 
-  const formatDistance = (meters?: number) => {
-    if (!meters) return '—';
-    return `${(meters / 1000).toFixed(1)} km`;
-  };
 
   // Workout Types catalog list
   const WORKOUT_TYPES = [
@@ -555,7 +542,7 @@ export default function WorkoutLibraryPage() {
                       {w.estimatedDistanceMeters ? (
                         <div className="flex items-center gap-1 text-zinc-455">
                           <Activity className="w-3.5 h-3.5 text-[#FC5200]/60" />
-                          <span>{formatDistance(w.estimatedDistanceMeters)}</span>
+                          <span>{formatDistanceKm(w.estimatedDistanceMeters)}</span>
                         </div>
                       ) : null}
                     </div>

@@ -1,37 +1,22 @@
-export function isRealNumber(val: any): boolean {
-  return typeof val === 'number' && !isNaN(val) && isFinite(val);
-}
+export { 
+  isRealNumber, 
+  safeDisplay, 
+  formatDistanceKm, 
+  formatElevation,
+  formatDuration, 
+  formatPace, 
+  computePaceFromDistanceTime, 
+  normalizeDate,
+  formatHeartRate,
+  formatCadence,
+  formatPower,
+  safeNumber,
+  safeString,
+  safeArray,
+  isValidActivity
+} from './formatters';
 
-export function safeDisplay(val: any, fallback = '—'): string {
-  if (val === undefined || val === null || val === '') return fallback;
-  return String(val);
-}
-
-export function formatDistanceKm(meters: number | undefined): string {
-  if (!isRealNumber(meters)) return '—';
-  return `${(meters! / 1000).toFixed(2)} km`;
-}
-
-export function formatDuration(seconds: number | undefined): string {
-  if (!isRealNumber(seconds)) return '—';
-  const h = Math.floor(seconds! / 3600);
-  const m = Math.floor((seconds! % 3600) / 60);
-  const s = Math.floor(seconds! % 60);
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-  if (h > 0) {
-    return `${h}:${pad(m)}:${pad(s)}`;
-  }
-  return `${pad(m)}:${pad(s)}`;
-}
-
-export function formatPace(secsPerKm: number | undefined): string {
-  if (!isRealNumber(secsPerKm)) return '—';
-  if (secsPerKm! === Infinity || secsPerKm! <= 0) return '—';
-  const mins = Math.floor(secsPerKm! / 60);
-  const secs = Math.round(secsPerKm! % 60);
-  return `${mins}:${String(secs).padStart(2, '0')} /km`;
-}
+import { isRealNumber } from './formatters';
 
 export interface ActivityHealthResult {
   hasInvalidDate: boolean;
@@ -76,26 +61,5 @@ export function getActivityDataHealth(act: any): ActivityHealthResult {
   };
 }
 
-export function computePaceFromDistanceTime(distanceMeters: number | undefined, movingTimeSeconds: number | undefined): number | undefined {
-  if (!isRealNumber(distanceMeters) || !isRealNumber(movingTimeSeconds) || distanceMeters! <= 0) {
-    return undefined;
-  }
-  const km = distanceMeters! / 1000;
-  return movingTimeSeconds! / km;
-}
 
-export function normalizeDate(dateString: string | undefined): string {
-  if (!dateString) return '—';
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return dateString;
-    return d.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return dateString;
-  }
-}
 

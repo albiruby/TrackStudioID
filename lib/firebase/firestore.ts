@@ -43,7 +43,7 @@ export async function getActivities(uid: string, limitCount?: number): Promise<C
 
 
 import { db, auth } from './client';
-import { AthleteProfile, CanonicalActivity, DailyWellnessLog, DailyTrainingLoad, CanonicalActivityStream, CanonicalGear, CourseRecord, CourseAttempt } from '../../data/types';
+import { AthleteProfile, CanonicalActivity, DailyWellnessLog, DailyTrainingLoad, CanonicalActivityStream, CanonicalGear, CourseRecord, CourseAttempt } from '../data/types';
 
 export enum OperationType {
   CREATE = 'create',

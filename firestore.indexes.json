@@ -1,0 +1,124 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "trainingLoads",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "userId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "date",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "activities",
+      "fieldPath": "startDateLocal",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "activities",
+      "fieldPath": "startDate",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "activities",
+      "fieldPath": "sportType",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "activities",
+      "fieldPath": "hasGps",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "activities",
+      "fieldPath": "hasHeartRate",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "activities",
+      "fieldPath": "source",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "dailyLoad",
+      "fieldPath": "date",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "wellnessLogs",
+      "fieldPath": "date",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "workouts",
+      "fieldPath": "scheduledDate",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "workouts",
+      "fieldPath": "source",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "reports",
+      "fieldPath": "generatedAt",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "gear",
+      "fieldPath": "retired",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    },
+    {
+      "collectionGroup": "calculatorResults",
+      "fieldPath": "createdAt",
+      "indexes": [
+        {"order": "ASCENDING", "queryScope": "COLLECTION"},
+        {"order": "DESCENDING", "queryScope": "COLLECTION"}
+      ]
+    }
+  ]
+}

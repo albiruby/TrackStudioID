@@ -6,6 +6,7 @@ import { useAuth } from '../../../context/auth-context';
 import { db } from '../../../lib/firebase/client';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { deleteCustomWorkout } from '../../../lib/firebase/firestore';
+import { formatDuration, formatDistanceKm } from '../../../lib/data/dataLaw';
 import {
   ArrowLeft,
   Dumbbell,
@@ -110,20 +111,7 @@ export default function WorkoutDetailPage() {
     }
   };
 
-  const formatDuration = (sec?: number) => {
-    if (!sec) return '—';
-    const hrs = Math.floor(sec / 3600);
-    const mins = Math.floor((sec % 3600) / 60);
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m`;
-    }
-    return `${mins}m`;
-  };
 
-  const formatDistance = (meters?: number) => {
-    if (!meters) return '—';
-    return `${(meters / 1000).toFixed(2)} km`;
-  };
 
   const getStepBg = (type: string) => {
     switch (type) {
@@ -251,7 +239,7 @@ export default function WorkoutDetailPage() {
                     <span className="text-zinc-500 uppercase">Estimated Distance:</span>
                     <span className="text-white font-bold flex items-center gap-1">
                       <Activity className="w-3.5 h-3.5 text-[#FC5200]" />
-                      {formatDistance(workout.estimatedDistanceMeters)}
+                      {formatDistanceKm(workout.estimatedDistanceMeters)}
                     </span>
                   </div>
                 ) : null}
@@ -331,7 +319,7 @@ export default function WorkoutDetailPage() {
                                       {child.durationSeconds ? (
                                         <span>Duration: {formatDuration(child.durationSeconds)}</span>
                                       ) : child.distanceMeters ? (
-                                        <span>Distance: {formatDistance(child.distanceMeters)}</span>
+                                        <span>Distance: {formatDistanceKm(child.distanceMeters)}</span>
                                       ) : <span>Open time</span>}
                                     </div>
                                   </div>
@@ -393,7 +381,7 @@ export default function WorkoutDetailPage() {
                             {st.durationSeconds ? (
                               <span>Duration: {formatDuration(st.durationSeconds)}</span>
                             ) : st.distanceMeters ? (
-                              <span>Distance: {formatDistance(st.distanceMeters)}</span>
+                              <span>Distance: {formatDistanceKm(st.distanceMeters)}</span>
                             ) : <span>Open / manually triggered</span>}
                           </div>
                         </div>

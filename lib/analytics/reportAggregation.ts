@@ -107,9 +107,7 @@ export function aggregateActivities(
     // Date range is matches. Let's inspect distance
     if (act.distanceMeters === undefined || act.distanceMeters === null || isNaN(act.distanceMeters) || act.distanceMeters < 0) {
       missingDistanceCount++;
-      excludedCount++;
-      warningsList.push(`Activity "${act.name}" on ${act.startDate.slice(0, 10)} excluded due to missing or invalid distance metrics.`);
-      return;
+      warningsList.push(`Activity "${act.name}" on ${act.startDate.slice(0, 10)} has missing or invalid distance metrics. (Using 0)`);
     }
 
     matchingDateActivities.push(act);
@@ -194,11 +192,11 @@ export function aggregateActivities(
     
     // Monthly
     const monthKey = d.toLocaleString('en-US', { month: 'short', year: 'numeric' });
-    monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + act.distanceMeters;
+    monthlyMap[monthKey] = (monthlyMap[monthKey] || 0) + (act.distanceMeters || 0);
 
     // Weekly (Determine Sunday starting point for simplicity)
     const sundayStr = getSundayOfWeekString(d);
-    weeklyMap[sundayStr] = (weeklyMap[sundayStr] || 0) + act.distanceMeters;
+    weeklyMap[sundayStr] = (weeklyMap[sundayStr] || 0) + (act.distanceMeters || 0);
 
     // Composition
     const sportName = act.sportType || 'Other';
@@ -207,7 +205,7 @@ export function aggregateActivities(
       compositionMap[cleanSportName] = { count: 0, distance: 0 };
     }
     compositionMap[cleanSportName].count += 1;
-    compositionMap[cleanSportName].distance += act.distanceMeters;
+    compositionMap[cleanSportName].distance += (act.distanceMeters || 0);
 
     // Elevation Trend
     if (act.elevationGainMeters !== undefined && act.elevationGainMeters !== null && !isNaN(act.elevationGainMeters)) {

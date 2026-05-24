@@ -212,10 +212,9 @@ export default function DataHealthPage() {
       // Query streams
       let streamsCount = 0;
       try {
-        const streamsSnap = await getDocs(activityStreamsCollection);
+        const streamsSnap = await getDocs(collection(db, 'users', uid, 'activityStreams'));
         // Map streams that correspond to current user's activities
-        const actIds = new Set(loadedActs.map(a => a.id));
-        streamsCount = streamsSnap.docs.filter(d => actIds.has(d.id)).length;
+        streamsCount = streamsSnap.size;
       } catch (e) {
         console.warn('Activity streams collection scale load failed:', e);
       }
@@ -274,7 +273,7 @@ export default function DataHealthPage() {
     
     let streamsMap: Record<string, any> = {};
     try {
-      const streamsSnap = await getDocs(activityStreamsCollection);
+      const streamsSnap = await getDocs(collection(db, 'users', user.uid, 'activityStreams'));
       streamsSnap.docs.forEach(doc => {
         streamsMap[doc.id] = doc.data();
       });
@@ -438,7 +437,7 @@ export default function DataHealthPage() {
           id: `wellness_missing_hrv_${w.date || w.id}`,
           category: 'wellness',
           severity: 'low',
-          message: `Wellness record for ${w.date || 'unknown date'} is missing HRV (RMSSD) value. This is expected if syncing without an HRV device.`,
+          message: `Wellness record for ${w.date || 'Unspecified Date'} is missing HRV (RMSSD) value. This is expected if syncing without an HRV device.`,
           affectedId: w.id
         });
       }
@@ -447,7 +446,7 @@ export default function DataHealthPage() {
           id: `wellness_missing_rhr_${w.date || w.id}`,
           category: 'wellness',
           severity: 'low',
-          message: `Wellness record for ${w.date || 'unknown date'} is missing Resting Heart Rate (RHR).`,
+          message: `Wellness record for ${w.date || 'Unspecified Date'} is missing Resting Heart Rate (RHR).`,
           affectedId: w.id
         });
       }
@@ -470,7 +469,7 @@ export default function DataHealthPage() {
           id: `load_missing_ctl_${l.date || l.id}`,
           category: 'load',
           severity: 'medium',
-          message: `Training load record for ${l.date || 'unknown date'} is missing Fitness (CTL). This is required for PMC charting.`,
+          message: `Training load record for ${l.date || 'Unspecified Date'} is missing Fitness (CTL). This is required for PMC charting.`,
           affectedId: l.id
         });
       }
@@ -479,7 +478,7 @@ export default function DataHealthPage() {
           id: `load_missing_atl_${l.date || l.id}`,
           category: 'load',
           severity: 'medium',
-          message: `Training load record for ${l.date || 'unknown date'} is missing Fatigue (ATL). This is required for PMC charting.`,
+          message: `Training load record for ${l.date || 'Unspecified Date'} is missing Fatigue (ATL). This is required for PMC charting.`,
           affectedId: l.id
         });
       }
@@ -488,7 +487,7 @@ export default function DataHealthPage() {
           id: `load_missing_tsb_${l.date || l.id}`,
           category: 'load',
           severity: 'medium',
-          message: `Training load record for ${l.date || 'unknown date'} is missing Form (TSB). This is required for PMC charting.`,
+          message: `Training load record for ${l.date || 'Unspecified Date'} is missing Form (TSB). This is required for PMC charting.`,
           affectedId: l.id
         });
       }

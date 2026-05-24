@@ -176,6 +176,8 @@ export const streamConverter: FirestoreDataConverter<CanonicalActivityStream> = 
     const data = convertTimestamps(snapshot.data());
     return {
       activityId: snapshot.id,
+      userId: data.userId || '',
+      source: data.source || 'strava',
       time: data.time,
       distance: data.distance,
       velocitySmooth: data.velocitySmooth,

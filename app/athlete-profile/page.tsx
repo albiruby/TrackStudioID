@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
+import { formatDistanceKm, formatDuration, formatPace } from '../../lib/data/dataLaw';
 import { motion } from 'motion/react';
 import { 
   ArrowLeft, 
@@ -54,6 +55,8 @@ export default function AthleteProfilePage() {
 
   // Race results list
   const [recentRaceResults, setRecentRaceResults] = useState<RaceResult[]>([]);
+  
+  const isMetric = preferredUnits !== 'imperial';
 
   // Add new race result form state
   const [newRaceDistMeters, setNewRaceDistMeters] = useState('');
@@ -247,9 +250,7 @@ export default function AthleteProfilePage() {
 
   // Metric to imperial calculators format
   const formatRacePace = (m: number, s: number) => {
-    const minStr = Math.floor(s / 60);
-    const secStr = Math.round(s % 60).toString().padStart(2, '0');
-    return `${minStr}:${secStr} /km`;
+    return formatPace(s, isMetric);
   };
 
   const parseRaceDistance = (meters: number) => {
@@ -257,18 +258,7 @@ export default function AthleteProfilePage() {
     if (meters === 10000) return '10K';
     if (meters === 21097.5 || meters === 21100) return 'Half Marathon';
     if (meters === 42195) return 'Marathon';
-    return `${(meters / 1000).toFixed(2)} km`;
-  };
-
-  const formatDuration = (totalSec: number) => {
-    const hrs = Math.floor(totalSec / 3600);
-    const mins = Math.floor((totalSec % 3600) / 60);
-    const secs = totalSec % 60;
-    
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m ${secs}s`;
-    }
-    return `${mins}m ${secs}s`;
+    return formatDistanceKm(meters, isMetric);
   };
 
   // Readiness Checklist status indicators

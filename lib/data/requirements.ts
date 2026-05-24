@@ -161,3 +161,22 @@ export const REQUIREMENTS: Record<string, DataRequirement> = {
     severity: 'warning'
   }
 };
+
+export function getMissingRequirements(checkList: string[], providedData: Record<string, boolean>): DataRequirement[] {
+  const missing: DataRequirement[] = [];
+  for (const reqId of checkList) {
+    if (!providedData[reqId] && REQUIREMENTS[reqId]) {
+      missing.push(REQUIREMENTS[reqId]);
+    }
+  }
+  return missing;
+}
+
+export function getModuleReadiness(checkList: string[], providedData: Record<string, boolean>): { ready: boolean, missing: DataRequirement[] } {
+  const missingReqs = getMissingRequirements(checkList, providedData);
+  const isBlocked = missingReqs.some(req => req.severity === 'blocking');
+  return {
+    ready: !isBlocked,
+    missing: missingReqs
+  };
+}

@@ -6,8 +6,32 @@ rules_version = '2';
 // 2. Safe connection metadata is exposed in users/{userId}/connections/{document=**}
 //    with strict field rules actively blocking clients from injecting secrets.
 // 3. Fake AI or fabricated tracking telemetry is prevented.
+// 4. Source faking is prevented for strava/intervals, only server can write it.
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper to check for secrets being written
+    function isNotWritingSecrets() {
+      let data = request.resource.data;
+      return !('accessToken' in data) &&
+             !('refreshToken' in data) &&
+             !('apiKey' in data) &&
+             !('clientSecret' in data) &&
+             !('secrets' in data);
+    }
+
+    // Helper to check source fields for create
+    function isNotFakingCreateSource() {
+      let data = request.resource.data;
+      return !('source' in data) || (data.source != 'strava' && data.source != 'intervals');
+    }
+
+    // Helper to check source fields for update
+    function isNotFakingUpdateSource() {
+      let data = request.resource.data;
+      return !('source' in data) || (data.source == resource.data.source) || (data.source != 'strava' && data.source != 'intervals');
+    }
+
     // 1. Global Safety Net - Default Deny Everything
     match /{document=**} {
       allow read, write: if false;
@@ -15,26 +39,28 @@ service cloud.firestore {
 
     // 2. User & Athlete Profile Rules
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null && request.auth.uid == userId && isNotWritingSecrets();
+      allow delete: if request.auth != null && request.auth.uid == userId;
 
       // Athlete Profile Subcollection
       match /profile/{profileId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read, write: if request.auth != null && request.auth.uid == userId && isNotWritingSecrets();
       }
 
       // Activity Streams (Nested Subcollection)
       match /activityStreams/{activityId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId && isNotFakingCreateSource();
+        allow update: if request.auth != null && request.auth.uid == userId && isNotFakingUpdateSource();
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
       // Connections (Public status)
       match /connections/{connectionId} {
         allow read: if request.auth != null && request.auth.uid == userId;
-        allow write: if request.auth != null && request.auth.uid == userId
-                     && !('accessToken' in request.resource.data)
-                     && !('refreshToken' in request.resource.data)
-                     && !('apiKey' in request.resource.data)
-                     && !('clientSecret' in request.resource.data);
+        allow create, update: if request.auth != null && request.auth.uid == userId && isNotWritingSecrets();
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
       // Private Connections (Nested Subcollection - Tokens)
@@ -45,106 +71,40 @@ service cloud.firestore {
       // Activities
       match /activities/{activityId} {
         allow read: if request.auth != null && request.auth.uid == userId;
-        allow create: if request.auth != null && request.auth.uid == userId
-                      && (!('source' in request.resource.data) || request.resource.data.source == 'manual');
-        allow update: if request.auth != null && request.auth.uid == userId
-                      && (!('source' in request.resource.data) || request.resource.data.source == resource.data.source || request.resource.data.source == 'manual');
+        allow create: if request.auth != null && request.auth.uid == userId && isNotFakingCreateSource();
+        allow update: if request.auth != null && request.auth.uid == userId && isNotFakingUpdateSource();
         allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
       // Daily Wellness Logs (Nested Subcollection)
       match /wellnessLogs/{date} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId && isNotFakingCreateSource();
+        allow update: if request.auth != null && request.auth.uid == userId && isNotFakingUpdateSource();
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
       // Daily Loads (Nested Subcollection)
       match /dailyLoad/{date} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId && isNotFakingCreateSource();
+        allow update: if request.auth != null && request.auth.uid == userId && isNotFakingUpdateSource();
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
-      // Laps, Splits, Best Efforts (Nested Subcollections)
-      match /laps/{activityId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-      match /splits/{activityId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-      match /bestEfforts/{activityId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // Calculator results & history
-      match /calculatorResults/{resultId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // User custom settings
-      match /settings/{settingId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // Gear tracking nested collection
-      match /gear/{gearId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // Workout comparisons nested collection
-      match /workoutComparisons/{comparisonId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // Workouts custom collection
-      match /workouts/{workoutId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // Course records custom collection
-      match /courseRecords/{courseId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // Export metadata
-      match /exportAssets/{exportId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      // All other nested subcollections fallback
+      match /{otherSubcollections}/{docId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null && request.auth.uid == userId && isNotWritingSecrets();
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
     }
 
-    // Keep /athletes/ collection for full support of any legacy routes
-    match /athletes/{athleteId} {
-      allow read, write: if request.auth != null && request.auth.uid == athleteId;
-
-      match /activities/{activityId} {
-        allow read, write: if request.auth != null && request.auth.uid == athleteId;
-      }
-    }
-
-    // 3. User Activities Rules
-    match /activities/{activityId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-    }
-
-    // 4. Daily Wellness Logs Rules
-    match /wellness/{date} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-    }
-
-    // 5. Training Loads Rules
     match /trainingLoads/{loadId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-    }
-
-    match /daily_loads/{loadId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
-    }
-
-    // 6. Athlete Gear Rules
-    match /gear/{gearId} {
-      allow read, write: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read: if request.auth != null && (resource == null || resource.data.userId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid && isNotFakingCreateSource();
+      allow update: if request.auth != null && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid && isNotFakingUpdateSource();
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
   }
 }

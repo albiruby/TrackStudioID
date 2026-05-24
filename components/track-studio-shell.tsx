@@ -93,7 +93,7 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
       setLoadingData(true);
       const token = await user.getIdToken();
       const [acts, logs, loads, gears, stravaRes, intervalsRes] = await Promise.all([
-        getActivities(user.uid),
+        getActivities(user.uid, 500),
         getWellnessLogs(user.uid),
         getDailyLoads(user.uid),
         getGearList(user.uid),

@@ -100,7 +100,7 @@ export default function ExportCardStudio({
             await saveExportAsset(
               user.uid,
               'activity_card',
-              payload.source || 'unknown',
+              payload.source || 'unspecified',
               'system',
               selectedTemplateId,
               selectedRatio,

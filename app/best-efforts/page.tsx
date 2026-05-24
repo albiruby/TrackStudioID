@@ -109,14 +109,7 @@ export default function BestEffortsPage() {
 
   const isMetric = athleteProfile?.preferredUnits !== 'imperial';
 
-  // Pace formatter
-  const formatPaceWithUnit = (secondsPerKm: number) => {
-    if (!secondsPerKm || isNaN(secondsPerKm)) return '--:--';
-    const paceSeconds = isMetric ? secondsPerKm : secondsPerKm * 1.609344;
-    const m = Math.floor(paceSeconds / 60);
-    const s = Math.round(paceSeconds % 60);
-    return `${m}:${s.toString().padStart(2, '0')} /${isMetric ? 'km' : 'mi'}`;
-  };
+
 
   // Build categorised personal efforts list
   const getCompiledBestEfforts = (): DisplayEffort[] => {
@@ -326,7 +319,7 @@ export default function BestEffortsPage() {
                       </div>
                       <div>
                         <span className="text-[10px] text-zinc-400 uppercase font-bold block leading-tight">Best Pace</span>
-                        <span className="text-sm font-mono font-extrabold text-[#FC5200]">{formatPaceWithUnit(effort.pace)}</span>
+                        <span className="text-sm font-mono font-extrabold text-[#FC5200]">{formatPace(effort.pace, isMetric)}</span>
                       </div>
                       {effort.heartRate && (
                         <div>

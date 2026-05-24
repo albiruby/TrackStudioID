@@ -31,7 +31,7 @@ import {
   getAthleteProfile 
 } from '../../lib/firebase/firestore';
 import { CanonicalActivity, CourseRecord, CourseAttempt } from '../../data/types';
-import { formatDuration } from '../../lib/data/dataLaw';
+import { formatDuration, formatDistanceKm, formatElevation, formatPace } from '../../lib/data/dataLaw';
 
 export default function CourseRecordsPage() {
   const router = useRouter();
@@ -84,30 +84,7 @@ export default function CourseRecordsPage() {
 
   const isMetric = athleteProfile?.preferredUnits !== 'imperial';
 
-  // Localized distance formatting
-  const formatCourseDistance = (meters: number) => {
-    if (isMetric) {
-      return `${(meters / 1000).toFixed(2)} km`;
-    }
-    return `${(meters / 1609.344).toFixed(2)} mi`;
-  };
 
-  // Localized elevation formatting
-  const formatCourseElevation = (meters: number) => {
-    if (isMetric) {
-      return `${Math.round(meters)} m`;
-    }
-    return `${Math.round(meters * 3.28084)} ft`;
-  };
-
-  // Localized pace formatting (takes seconds per km)
-  const formatCoursePace = (secondsPerKm: number) => {
-    if (!secondsPerKm || isNaN(secondsPerKm)) return '--:--';
-    const paceSeconds = isMetric ? secondsPerKm : secondsPerKm * 1.609344;
-    const m = Math.floor(paceSeconds / 60);
-    const s = Math.round(paceSeconds % 60);
-    return `${m}:${s.toString().padStart(2, '0')} /${isMetric ? 'km' : 'mi'}`;
-  };
 
   // Filter ONLY Activities with valid GPS map/route data
   const gpsActivities = activities.filter(a => !!a.summaryPolyline || !!a.polyline);
@@ -382,7 +359,7 @@ export default function CourseRecordsPage() {
                        <option value="">-- Select GPS Activity --</option>
                        {gpsActivities.map(a => (
                          <option key={a.id} value={a.id}>
-                           {a.startDate?.slice(0, 10)} - {a.name} ({formatCourseDistance(a.distanceMeters)})
+                           {a.startDate?.slice(0, 10)} - {a.name} ({formatDistanceKm(a.distanceMeters, isMetric)})
                          </option>
                        ))}
                      </select>
@@ -439,9 +416,9 @@ export default function CourseRecordsPage() {
                         <h3 className="text-base font-extrabold text-white uppercase font-sans tracking-tight">{course.name}</h3>
                       </div>
                       <div className="flex flex-wrap items-center gap-4 text-zinc-400 text-[11px] font-mono leading-none">
-                        <span>EST. LENGTH: <strong className="text-white font-extrabold">{formatCourseDistance(course.distanceMeters)}</strong></span>
+                        <span>EST. LENGTH: <strong className="text-white font-extrabold">{formatDistanceKm(course.distanceMeters, isMetric)}</strong></span>
                         <span className="text-zinc-650">|</span>
-                        <span>ELEV GAIN: <strong className="text-white font-extrabold">{formatCourseElevation(course.elevationGainMeters)}</strong></span>
+                        <span>ELEV GAIN: <strong className="text-white font-extrabold">{formatElevation(course.elevationGainMeters, isMetric)}</strong></span>
                         <span className="text-zinc-650">|</span>
                         <span>ATTEMPTS: <strong className="text-[#FC5200] font-extrabold">{acts.length} Run Logs</strong></span>
                       </div>
@@ -454,7 +431,7 @@ export default function CourseRecordsPage() {
                       </div>
                       <div>
                         <span className="text-[10px] text-zinc-500 uppercase font-bold block">Best Record Pace</span>
-                        <span className="text-xs font-mono font-extrabold text-[#FC5200]">{formatCoursePace(course.bestPaceSecPerKm)}</span>
+                        <span className="text-xs font-mono font-extrabold text-[#FC5200]">{formatPace(course.bestPaceSecPerKm, isMetric)}</span>
                       </div>
                     </div>
 
@@ -502,7 +479,7 @@ export default function CourseRecordsPage() {
                               <option value="">-- Choose workout run log --</option>
                               {attemptCandidates.map(c => (
                                 <option key={c.id} value={c.id}>
-                                  {c.startDate?.slice(0, 10)} - {c.name} ({formatCourseDistance(c.distanceMeters)})
+                                  {c.startDate?.slice(0, 10)} - {c.name} ({formatDistanceKm(c.distanceMeters, isMetric)})
                                 </option>
                               ))}
                             </select>
@@ -556,10 +533,10 @@ export default function CourseRecordsPage() {
                                         {formatDuration(att.movingTimeSeconds)}
                                       </td>
                                       <td className="p-3 text-zinc-400">
-                                        {formatCourseDistance(att.distanceMeters)}
+                                        {formatDistanceKm(att.distanceMeters, isMetric)}
                                       </td>
                                       <td className="p-3 text-[#FC5200] font-semibold">
-                                        {formatCoursePace(att.paceSecPerKm)}
+                                        {formatPace(att.paceSecPerKm, isMetric)}
                                       </td>
                                       <td className="p-3 text-zinc-400">
                                         {att.averageHeartRate ? (

@@ -1,14 +1,19 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /users/{userId}/exports/{document=**} {
+    match /users/{userId}/exports/{exportId} {
       // Only authenticated users can access their own storage folder
       allow read: if request.auth != null && request.auth.uid == userId;
       // Allow uploading png files up to ~10MB
       allow write: if request.auth != null 
                    && request.auth.uid == userId
                    && request.resource.contentType == 'image/png'
-                   && request.resource.size < 10 * 1024 * 1024;
+                   && request.resource.size < 10 * 1024 * 1024
+                   && exportId.matches('.*\\.png$');
+    }
+    
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

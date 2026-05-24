@@ -208,19 +208,28 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
 
   const getGraphDataPoints = () => {
     if (!stream || !stream.time) return [];
-    return stream.time.map((t, idx) => ({
-      index: idx,
-      Time: t,
-      Distance: stream.distance?.[idx] || 0,
-      HeartRate: stream.heartrate?.[idx] ?? null,
-      Altitude: stream.altitude?.[idx] ?? null,
-      Cadence: stream.cadence?.[idx] ?? null,
-      Watts: stream.watts?.[idx] ?? null,
-      Velocity: stream.velocitySmooth?.[idx] ?? null,
-      Pace: stream.velocitySmooth?.[idx] && stream.velocitySmooth[idx] > 0 ? (1000 / stream.velocitySmooth[idx]) : null,
-      Temperature: stream.temp?.[idx] ?? null,
-      Grade: stream.gradeSmooth?.[idx] ?? null
-    }));
+    
+    // Downsample chart data to max 500 points for UI render performance
+    const rawLen = stream.time.length;
+    const step = Math.max(1, Math.floor(rawLen / 500));
+    
+    const results = [];
+    for (let idx = 0; idx < rawLen; idx += step) {
+      results.push({
+        index: idx,
+        Time: stream.time[idx],
+        Distance: stream.distance?.[idx] || 0,
+        HeartRate: stream.heartrate?.[idx] ?? null,
+        Altitude: stream.altitude?.[idx] ?? null,
+        Cadence: stream.cadence?.[idx] ?? null,
+        Watts: stream.watts?.[idx] ?? null,
+        Velocity: stream.velocitySmooth?.[idx] ?? null,
+        Pace: stream.velocitySmooth?.[idx] && stream.velocitySmooth[idx] > 0 ? (1000 / stream.velocitySmooth[idx]) : null,
+        Temperature: stream.temp?.[idx] ?? null,
+        Grade: stream.gradeSmooth?.[idx] ?? null
+      });
+    }
+    return results;
   };
 
   const chartData = getGraphDataPoints();

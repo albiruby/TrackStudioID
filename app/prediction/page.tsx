@@ -16,7 +16,8 @@ import {
   Info
 } from 'lucide-react';
 import { getActivities } from '../../lib/firebase/firestore';
-import { CanonicalActivity } from '../../data/types';
+import { CanonicalActivity } from '../../lib/data/types';
+import { formatPace, formatDistanceKm, formatDuration } from '../../lib/data/dataLaw';
 import { db } from '../../lib/firebase/client';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
@@ -190,22 +191,7 @@ export default function PredictionPage() {
       confidence = 'Low';
   }
 
-  const formatPace = (secPerKm: number | null) => {
-    if (!secPerKm || isNaN(secPerKm)) return '—';
-    const min = Math.floor(secPerKm / 60);
-    const sec = Math.round(secPerKm % 60);
-    return `${min}:${sec.toString().padStart(2, '0')}/km`;
-  };
 
-  const formatDuration = (totalSeconds: number | null) => {
-    if (!totalSeconds || isNaN(totalSeconds)) return '—';
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = Math.round(totalSeconds % 60);
-    const pad = (n: number) => String(n).padStart(2, '0');
-    if (h > 0) return `${h}:${pad(m)}:${pad(s)}`;
-    return `${pad(m)}:${pad(s)}`;
-  };
 
   const handleSaveResult = async () => {
     if (!user || (!riegelPred && !vdotPred)) return;

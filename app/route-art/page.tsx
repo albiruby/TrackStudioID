@@ -271,7 +271,7 @@ export default function RouteArtPage() {
     // Sample key points along the route trace (e.g., maximum 60 points)
     const targetCount = 60;
     const step = Math.max(1, Math.floor(coordinates.length / targetCount));
-    const starPoints: [number, number][] = [];
+    const starPoints: number[][] = [];
     for (let i = 0; i < coordinates.length; i += step) {
       starPoints.push(coordinates[i]);
     }
