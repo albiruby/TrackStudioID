@@ -18,6 +18,10 @@ import {
 import { ExportCardPayload } from '../../lib/export/exportPayload';
 import { EXPORT_TEMPLATES, validateTemplate } from '../../lib/export/exportValidation';
 import ExportCanvas from './ExportCanvas';
+import { useAuth } from '../../context/auth-context';
+import { saveExportAsset } from '../../lib/export/exportStorage';
+import { Database } from 'lucide-react';
+import { storage } from '../../lib/firebase/client';
 
 interface ExportCardStudioProps {
   payload: ExportCardPayload;
@@ -35,6 +39,7 @@ export default function ExportCardStudio({
   onClose,
   preferredUnits = 'metric'
 }: ExportCardStudioProps) {
+  const { user } = useAuth();
   const svgRef = useRef<SVGSVGElement | null>(null);
 
   const [selectedRatio, setSelectedRatio] = useState<RatioType>('1:1');
@@ -46,6 +51,85 @@ export default function ExportCardStudio({
   const [feedbackType, setFeedbackType] = useState<'success' | 'error' | 'info'>('info');
 
   const isMetric = preferredUnits !== 'imperial';
+
+  const hasStorage = !!storage;
+
+  const handleSaveToLibrary = async () => {
+    if (!svgRef.current || !user || !hasStorage) {
+      triggerFeedback('Cannot save to library: storage offline or not authenticated.', 'error');
+      return;
+    }
+
+    setIsExporting(true);
+    triggerFeedback('Rendering vectors for cloud library...', 'info');
+
+    try {
+      const svgElement = svgRef.current;
+      const serializer = new XMLSerializer();
+      const svgString = serializer.serializeToString(svgElement);
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      
+      const URLRef = window.URL || window.webkitURL || window;
+      const blobUrl = URLRef.createObjectURL(svgBlob);
+      
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1080;
+        canvas.height = ratioHeight;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          triggerFeedback('Failed to access canvas graphics context.', 'error');
+          setIsExporting(false);
+          return;
+        }
+
+        ctx.fillStyle = '#111113';
+        ctx.fillRect(0, 0, 1080, ratioHeight);
+        ctx.drawImage(img, 0, 0);
+        
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            triggerFeedback('Blob compiler fault.', 'error');
+            setIsExporting(false);
+            return;
+          }
+
+          try {
+            await saveExportAsset(
+              user.uid,
+              'activity_card',
+              payload.source || 'unknown',
+              'system',
+              selectedTemplateId,
+              selectedRatio,
+              blob
+            );
+            
+            URLRef.revokeObjectURL(blobUrl);
+            setIsExporting(false);
+            triggerFeedback('Card saved to cloud library successfully!', 'success');
+          } catch (storageErr: any) {
+            console.error('Storage error:', storageErr);
+            setIsExporting(false);
+            triggerFeedback('Failed to save to cloud library.', 'error');
+          }
+        }, 'image/png', 1.0);
+      };
+
+      img.onerror = () => {
+        setIsExporting(false);
+        triggerFeedback('Image decoder fault.', 'error');
+      };
+
+      img.src = blobUrl;
+    } catch (err: any) {
+      console.error('Cloud library processing crash:', err);
+      setIsExporting(false);
+      triggerFeedback('Upload process was interrupted.', 'error');
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -450,6 +534,17 @@ export default function ExportCardStudio({
                 <Copy className="w-4 h-4" />
                 <span>Copy Image</span>
               </button>
+
+              {hasStorage && (
+                <button
+                  onClick={handleSaveToLibrary}
+                  disabled={isExporting}
+                  className="flex-1 py-3 border border-[#FC5200]/20 hover:border-[#FC5200]/50 text-[#FC5200] hover:text-white hover:bg-[#FC5200]/10 text-xs font-bold uppercase font-mono tracking-wider rounded flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 transition-colors"
+                >
+                  <Database className="w-4 h-4" />
+                  <span>Save to Library</span>
+                </button>
+              )}
 
               <button
                 onClick={handleSavePng}

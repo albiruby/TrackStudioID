@@ -1,6 +1,7 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import appletConfig from '../../firebase-applet-config.json';
 import { clientEnv } from '../env.client';
 
@@ -32,4 +33,8 @@ export const db = app
 export const auth = app
   ? getAuth(app)
   : (null as unknown as ReturnType<typeof getAuth>);
+
+export const storage = app 
+  ? getStorage(app)
+  : (null as unknown as ReturnType<typeof getStorage>);
 

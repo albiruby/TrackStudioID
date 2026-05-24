@@ -25,9 +25,12 @@ import {
   HelpCircle,
   TrendingUp,
   SlidersHorizontal,
-  FolderLock
+  FolderLock,
+  Database
 } from 'lucide-react';
 import { getActivities, getActivityStream } from '../../lib/firebase/firestore';
+import { storage } from '../../lib/firebase/client';
+import { saveExportAsset } from '../../lib/export/exportStorage';
 import { decodePolyline } from '../../lib/export/exportPayload';
 import { CanonicalActivity, CanonicalActivityStream } from '../../data/types';
 
@@ -557,6 +560,84 @@ export default function RouteArtPage() {
       console.error('Clipboard action failure:', err);
       setIsExporting(false);
       triggerFeedback('Drawing coordinate sequence failed.', 'error');
+    }
+  };
+
+  const hasStorage = !!storage;
+
+  const handleSaveToLibrary = async () => {
+    if (!svgRef.current || !user || !hasStorage || !selectedActivity) {
+      triggerFeedback('Cannot save to library: storage offline or missing data.', 'error');
+      return;
+    }
+
+    setIsExporting(true);
+    triggerFeedback('Rendering vectors for cloud library...', 'info');
+
+    try {
+      const svgElement = svgRef.current;
+      const svgString = new XMLSerializer().serializeToString(svgElement);
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      
+      const URLRef = window.URL || window.webkitURL || window;
+      const blobUrl = URLRef.createObjectURL(svgBlob);
+      
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1080;
+        canvas.height = ratioHeight;
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          triggerFeedback('Graphics driver stream failure.', 'error');
+          setIsExporting(false);
+          return;
+        }
+
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, 1080, ratioHeight);
+        ctx.drawImage(img, 0, 0);
+        
+        canvas.toBlob(async (blob) => {
+          if (!blob) {
+            triggerFeedback('Blob serialization fault.', 'error');
+            setIsExporting(false);
+            return;
+          }
+
+          try {
+            await saveExportAsset(
+              user.uid,
+              'route_art',
+              selectedActivity.id,
+              'system', // using system or strava
+              selectedStyle,
+              selectedRatio,
+              blob
+            );
+            
+            URLRef.revokeObjectURL(blobUrl);
+            setIsExporting(false);
+            triggerFeedback('Poster saved to cloud library successfully!', 'success');
+          } catch (storageErr) {
+            console.error('Storage saving fault:', storageErr);
+            setIsExporting(false);
+            triggerFeedback('Failed to save to cloud library.', 'error');
+          }
+        }, 'image/png', 1.0);
+      };
+
+      img.onerror = () => {
+        setIsExporting(false);
+        triggerFeedback('Decoding process interrupted.', 'error');
+      };
+
+      img.src = blobUrl;
+    } catch (err) {
+      console.error('Library saving action failure:', err);
+      setIsExporting(false);
+      triggerFeedback('Image creation failed.', 'error');
     }
   };
 
@@ -1185,6 +1266,17 @@ export default function RouteArtPage() {
                 <Copy className="w-4 h-4" />
                 <span>Copy Image</span>
               </button>
+
+              {hasStorage && (
+                <button
+                  onClick={handleSaveToLibrary}
+                  disabled={isExporting || parseErrorMsg !== null || !selectedActivity}
+                  className="flex-1 py-3 border border-[#FC5200]/20 hover:border-[#FC5200]/50 text-[#FC5200] hover:text-white hover:bg-[#FC5200]/10 text-xs font-bold uppercase font-mono tracking-wider rounded-lg flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Database className="w-4 h-4" />
+                  <span>Save to Library</span>
+                </button>
+              )}
 
               <button
                 id="save-png-btn"
