@@ -79,6 +79,49 @@ export interface TrainingDiagnostic {
   updatedAt: string;
 }
 
+export interface DailyWellnessLog {
+  id?: string;
+  userId: string;
+  date: string;       // YYYY-MM-DD
+  source: 'intervals' | 'manual';
+  restingHeartRate?: number | null;
+  hrvRmssd?: number | null;
+  hrvSdnn?: number | null;
+  sleepDurationHours?: number | null;
+  sleepQuality?: number | null;
+  soreness?: number | null;
+  fatigue?: number | null;
+  mood?: number | null;
+  stress?: number | null;
+  weightKg?: number | null;
+  bodyFatPercent?: number | null;
+  notes?: string | null;
+  raw?: any;
+  syncedAt: string;
+  updatedAt: string;
+  dataHealth?: string;
+}
+
+export interface DailyTrainingLoad {
+  id?: string;
+  userId: string;
+  date: string;       // YYYY-MM-DD
+  source: 'intervals';
+  fitnessCtl?: number | null; // CTL
+  fatigueAtl?: number | null; // ATL
+  formTsb?: number | null;    // TSB
+  rampRate?: number | null;
+  trainingLoad?: number | null; // Load today
+  acuteLoad?: number | null;
+  chronicLoad?: number | null;
+  intensity?: number | null;
+  loadScore?: number | null;
+  raw?: any;
+  syncedAt: string;
+  updatedAt: string;
+  dataHealth?: string;
+}
+
 export interface WellnessHistory {
   id: string;
   athleteUid: string;

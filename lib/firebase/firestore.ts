@@ -89,6 +89,22 @@ export async function saveAthleteProfile(uid: string, profile: Partial<AthletePr
   }
 }
 
+export async function getDailyLoads(uid: string): Promise<DailyTrainingLoad[]> {
+  const path = `users/${uid}/dailyLoad`;
+  checkDatabaseState(OperationType.LIST, path);
+  try {
+    const q = query(collection(db, 'users', uid, 'dailyLoad'));
+    const snap = await getDocs(q);
+    const list: DailyTrainingLoad[] = [];
+    snap.forEach(d => {
+      list.push({ ...d.data(), id: d.id } as DailyTrainingLoad);
+    });
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
 export async function getActivities(uid: string): Promise<CanonicalActivity[]> {
   const path = `users/${uid}/activities`;
   checkDatabaseState(OperationType.LIST, path);
@@ -119,10 +135,10 @@ export async function saveActivity(uid: string, act: Partial<CanonicalActivity>)
 }
 
 export async function getWellnessLogs(uid: string): Promise<DailyWellnessLog[]> {
-  const path = `wellness`;
+  const path = `users/${uid}/wellnessLogs`;
   checkDatabaseState(OperationType.LIST, path);
   try {
-    const q = query(collection(db, 'wellness'), where('userId', '==', uid));
+    const q = query(collection(db, 'users', uid, 'wellnessLogs'));
     const snap = await getDocs(q);
     const list: DailyWellnessLog[] = [];
     snap.forEach(d => {
@@ -135,10 +151,10 @@ export async function getWellnessLogs(uid: string): Promise<DailyWellnessLog[]> 
 }
 
 export async function saveWellnessLog(uid: string, date: string, log: Partial<DailyWellnessLog>): Promise<void> {
-  const path = `wellness/${date}`;
+  const path = `users/${uid}/wellnessLogs/${date}`;
   checkDatabaseState(OperationType.WRITE, path);
   try {
-    const docRef = doc(db, 'wellness', date);
+    const docRef = doc(db, 'users', uid, 'wellnessLogs', date);
     await setDoc(docRef, { ...log, id: date, date, userId: uid }, { merge: true });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, path);
@@ -257,3 +273,62 @@ export async function getBestEfforts(activityId: string): Promise<any> {
         return null;
     }
 }
+
+export async function getSyncedZones(uid: string): Promise<any | null> {
+  const path = `users/${uid}/zones/current`;
+  checkDatabaseState(OperationType.GET, path);
+  try {
+    const docRef = doc(db, 'users', uid, 'zones', 'current');
+    const snap = await getDoc(docRef);
+    if (!snap.exists()) {
+      // Check fallback path settings/trainingZones
+      const fallbackRef = doc(db, 'users', uid, 'settings', 'trainingZones');
+      const fallbackSnap = await getDoc(fallbackRef);
+      if (!fallbackSnap.exists()) return null;
+      return fallbackSnap.data();
+    }
+    return snap.data();
+  } catch (error) {
+    handleFirestoreError(error, OperationType.GET, path);
+  }
+}
+
+export async function getImportedWorkouts(uid: string): Promise<any[]> {
+  const path = `users/${uid}/workouts`;
+  checkDatabaseState(OperationType.LIST, path);
+  try {
+    const q = query(collection(db, 'users', uid, 'workouts'));
+    const snap = await getDocs(q);
+    const list: any[] = [];
+    snap.forEach(d => {
+      list.push({ ...d.data(), id: d.id });
+    });
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+export async function saveCustomWorkout(uid: string, id: string, w: any): Promise<void> {
+  const path = `users/${uid}/workouts/${id}`;
+  checkDatabaseState(OperationType.WRITE, path);
+  try {
+    const docRef = doc(db, 'users', uid, 'workouts', id);
+    await setDoc(docRef, { ...w, id, userId: uid, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteCustomWorkout(uid: string, id: string): Promise<void> {
+  const path = `users/${uid}/workouts/${id}`;
+  checkDatabaseState(OperationType.DELETE, path);
+  try {
+    const docRef = doc(db, 'users', uid, 'workouts', id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+

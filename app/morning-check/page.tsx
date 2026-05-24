@@ -27,8 +27,8 @@ export default function MorningCheckPage() {
   const [muscleSoreness, setMuscleSoreness] = useState<number>(2);
   const [stressRating, setStressRating] = useState<number>(1);
   const [weightKg, setWeightKg] = useState<number>(70);
-  const [sleepHours, setSleepHours] = useState<number>(8.0);
-  const [sleepScore, setSleepScore] = useState<number>(85);
+  const [sleepDurationHours, setSleepDurationHours] = useState<number>(8.0);
+  const [sleepQuality, setSleepQuality] = useState<number>(85);
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
 
   const [saving, setSaving] = useState(false);
@@ -45,15 +45,15 @@ export default function MorningCheckPage() {
         id: date, // set date as the primary document ID
         userId: user.uid,
         date,
-        wakingHR,
+        source: 'manual',
+        restingHeartRate: wakingHR,
         hrvRmssd,
-        hrvState,
-        fatigueRating,
-        muscleSoreness,
-        stressRating,
+        fatigue: fatigueRating,
+        soreness: muscleSoreness,
+        stress: stressRating,
         weightKg,
-        sleepHours,
-        sleepScore,
+        sleepDurationHours,
+        sleepQuality,
       });
       setSaveSuccess(true);
       setTimeout(() => {
@@ -201,8 +201,8 @@ export default function MorningCheckPage() {
                     type="number"
                     step="0.1"
                     required
-                    value={sleepHours}
-                    onChange={(e) => setSleepHours(parseFloat(e.target.value) || 8.0)}
+                    value={sleepDurationHours}
+                    onChange={(e) => setSleepDurationHours(parseFloat(e.target.value) || 8.0)}
                     className="w-full bg-zinc-800/50 border border-white/10 focus:border-[#FC5200] outline-none text-xs p-2.5 text-zinc-200 rounded"
                   />
                 </div>
@@ -211,8 +211,8 @@ export default function MorningCheckPage() {
                   <input
                     type="number"
                     required
-                    value={sleepScore}
-                    onChange={(e) => setSleepScore(parseInt(e.target.value) || 80)}
+                    value={sleepQuality}
+                    onChange={(e) => setSleepQuality(parseInt(e.target.value) || 80)}
                     className="w-full bg-zinc-800/50 border border-white/10 focus:border-[#FC5200] outline-none text-xs p-2.5 text-zinc-200 rounded"
                   />
                 </div>

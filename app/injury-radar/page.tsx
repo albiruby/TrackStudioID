@@ -41,7 +41,7 @@ export default function InjuryRadarPage() {
     }
   }, [user, authLoading, router]);
 
-  const latestMobility = wellnessLogs.length > 0 ? wellnessLogs[0].muscleSoreness : null;
+  const latestMobility = wellnessLogs.length > 0 ? wellnessLogs[0].soreness : null;
 
   if (authLoading || loading) {
     return (

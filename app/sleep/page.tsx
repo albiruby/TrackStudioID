@@ -41,10 +41,10 @@ export default function SleepPage() {
     }
   }, [user, authLoading, router]);
 
-  const rawLogs = wellnessLogs.filter(w => w.sleepHours);
+  const rawLogs = wellnessLogs.filter(w => w.sleepDurationHours);
 
   // Compute average sleep duration
-  const totalSleep = rawLogs.reduce((sum, curr) => sum + (curr.sleepHours || 0), 0);
+  const totalSleep = rawLogs.reduce((sum, curr) => sum + (curr.sleepDurationHours || 0), 0);
   const avgSleep = rawLogs.length > 0 ? (totalSleep / rawLogs.length).toFixed(1) : null;
 
   if (authLoading || loading) {
@@ -107,7 +107,7 @@ export default function SleepPage() {
                     <span className="text-xs text-[#FC5200] font-bold block">{l.date}</span>
                     <span className="text-white font-bold mt-0.5 block">Sleep Sleep check</span>
                   </div>
-                  <span className="text-white font-extrabold">{l.sleepHours} hrs</span>
+                  <span className="text-white font-extrabold">{l.sleepDurationHours} hrs</span>
                 </div>
               ))}
             </div>

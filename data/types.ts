@@ -158,25 +158,46 @@ export interface CanonicalBestEffort {
 }
 
 export interface DailyWellnessLog {
-  id: string; // date YYYY-MM-DD
+  id?: string;
   userId: string;
   date: string;
-  wakingHR?: number;
-  hrvRmssd?: number;
-  hrvState?: 'optimal' | 'moderate' | 'suppressed';
-  fatigueRating?: number; // 1-5
-  muscleSoreness?: number; // 1-5
-  stressRating?: number; // 1-5
-  weightKg?: number;
-  sleepHours?: number;
-  sleepScore?: number;
+  source?: 'intervals' | 'manual';
+  restingHeartRate?: number | null;
+  hrvRmssd?: number | null;
+  hrvSdnn?: number | null;
+  sleepDurationHours?: number | null;
+  sleepQuality?: number | null;
+  soreness?: number | null;
+  fatigue?: number | null;
+  mood?: number | null;
+  stress?: number | null;
+  weightKg?: number | null;
+  bodyFatPercent?: number | null;
+  notes?: string | null;
+  raw?: any;
+  syncedAt?: string;
+  updatedAt?: string;
+  dataHealth?: string;
 }
 
 export interface DailyTrainingLoad {
-  id: string; // date YYYY-MM-DD
+  id?: string;
   userId: string;
   date: string;
-  loadValue: number; // TRIMP or ACWR derived score
+  source?: 'intervals';
+  fitnessCtl?: number | null;
+  fatigueAtl?: number | null;
+  formTsb?: number | null;
+  rampRate?: number | null;
+  trainingLoad?: number | null;
+  acuteLoad?: number | null;
+  chronicLoad?: number | null;
+  intensity?: number | null;
+  loadScore?: number | null;
+  raw?: any;
+  syncedAt?: string;
+  updatedAt?: string;
+  dataHealth?: string;
 }
 
 export interface CanonicalGear {

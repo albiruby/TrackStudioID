@@ -52,8 +52,8 @@ export default function OvertrainingGuardPage() {
 
     // Check if recent logs indicate high fatigue
     const latestWellness = wellnessLogs.length > 0 ? wellnessLogs[0] : null;
-    const isFatigued = !!(latestWellness && latestWellness.fatigueRating !== undefined && latestWellness.fatigueRating >= 4);
-    const isSore = !!(latestWellness && latestWellness.muscleSoreness !== undefined && latestWellness.muscleSoreness >= 4);
+    const isFatigued = !!(latestWellness && latestWellness.fatigue !== undefined && latestWellness.fatigue !== null && latestWellness.fatigue >= 4);
+    const isSore = !!(latestWellness && latestWellness.soreness !== undefined && latestWellness.soreness !== null && latestWellness.soreness >= 4);
 
     return {
       status: (isFatigued || isSore) ? 'HIGH STRAIN ALERT' : 'OPTIMAL ADAPTATION BASE',

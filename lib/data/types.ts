@@ -112,26 +112,46 @@ export interface CanonicalGear {
 }
 
 export interface DailyTrainingLoad {
+  id?: string;
+  userId: string;
   date: string;
-  ctl: number;
-  atl: number;
-  tsb: number;
-  trainingVolume: number; // in km or mins
+  source?: 'intervals';
+  fitnessCtl?: number | null;
+  fatigueAtl?: number | null;
+  formTsb?: number | null;
+  rampRate?: number | null;
+  trainingLoad?: number | null;
+  acuteLoad?: number | null;
+  chronicLoad?: number | null;
+  intensity?: number | null;
+  loadScore?: number | null;
+  raw?: any;
+  syncedAt?: string;
+  updatedAt?: string;
+  dataHealth?: string;
 }
 
 export interface DailyWellnessLog {
-  id: string;
+  id?: string;
   userId: string;
   date: string;
-  wakingHR: number;
-  hrvRmssd: number;
-  fatigueRating: number;
-  muscleSoreness: number;
-  stressRating: number;
-  weightKg: number;
-  sleepHours?: number;
-  sleepScore?: number;
-  notes?: string;
+  source?: 'intervals' | 'manual';
+  restingHeartRate?: number | null;
+  hrvRmssd?: number | null;
+  hrvSdnn?: number | null;
+  sleepDurationHours?: number | null;
+  sleepQuality?: number | null;
+  soreness?: number | null;
+  fatigue?: number | null;
+  mood?: number | null;
+  stress?: number | null;
+  weightKg?: number | null;
+  bodyFatPercent?: number | null;
+  notes?: string | null;
+  raw?: any;
+  syncedAt?: string;
+  updatedAt?: string;
+  dataHealth?: string;
 }
 
 export interface AthleteProfile {

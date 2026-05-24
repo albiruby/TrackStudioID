@@ -76,7 +76,8 @@ export function validateDailyWellnessLog(log: Partial<DailyWellnessLog>): DailyW
   if (!log.userId) throw new Error("Validation Error: DailyWellnessLog requires a 'userId'.");
   if (!log.date) throw new Error("Validation Error: DailyWellnessLog requires a 'date'.");
 
-  if (!isRealNumber(log.wakingHR) || log.wakingHR <= 0) {
+  const hr = typeof (log as any).wakingHR === 'number' ? (log as any).wakingHR : (log as any).restingHeartRate;
+  if (!isRealNumber(hr) || hr <= 0) {
     throw new Error("Validation Error: DailyWellnessLog requires a positive waking Heart Rate.");
   }
 
@@ -88,14 +89,14 @@ export function validateDailyWellnessLog(log: Partial<DailyWellnessLog>): DailyW
     id: log.id,
     userId: log.userId,
     date: log.date,
-    wakingHR: log.wakingHR,
+    restingHeartRate: hr,
     hrvRmssd: log.hrvRmssd,
-    fatigueRating: log.fatigueRating || 1,
-    muscleSoreness: log.muscleSoreness || 1,
-    stressRating: log.stressRating || 1,
+    fatigue: typeof (log as any).fatigueRating === 'number' ? (log as any).fatigueRating : typeof (log as any).fatigue === 'number' ? (log as any).fatigue : 1,
+    soreness: typeof (log as any).muscleSoreness === 'number' ? (log as any).muscleSoreness : typeof (log as any).soreness === 'number' ? (log as any).soreness : 1,
+    stress: typeof (log as any).stressRating === 'number' ? (log as any).stressRating : typeof (log as any).stress === 'number' ? (log as any).stress : 1,
     weightKg: log.weightKg || 70,
-    sleepHours: log.sleepHours,
-    sleepScore: log.sleepScore,
+    sleepDurationHours: typeof (log as any).sleepHours === 'number' ? (log as any).sleepHours : typeof (log as any).sleepDurationHours === 'number' ? (log as any).sleepDurationHours : undefined,
+    sleepQuality: typeof (log as any).sleepScore === 'number' ? (log as any).sleepScore : typeof (log as any).sleepQuality === 'number' ? (log as any).sleepQuality : undefined,
     notes: log.notes,
   };
 }

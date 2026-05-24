@@ -6,9 +6,10 @@ import { useAuth } from '../context/auth-context';
 import { 
   getActivities, 
   saveActivity, 
-  getWellnessLogs 
+  getWellnessLogs,
+  getDailyLoads
 } from '../lib/firebase/firestore';
-import { CanonicalActivity, DailyWellnessLog } from '../data/types';
+import { CanonicalActivity, DailyWellnessLog, DailyTrainingLoad } from '../data/types';
 import { 
   formatDistanceKm, 
   formatDuration, 
@@ -38,8 +39,19 @@ import {
   LogOut,
   LayoutDashboard,
   Menu,
-  X
+  X,
+  Info
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Legend
+} from 'recharts';
 
 interface ShellProps {
   activeTab?: 'dashboard' | 'activities' | 'wellness';
@@ -52,6 +64,7 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
   const [activeTab, setActiveTab] = useState<'dashboard' | 'activities' | 'wellness'>(initialActiveTab);
   const [activities, setActivities] = useState<CanonicalActivity[]>([]);
   const [wellnessLogs, setWellnessLogs] = useState<DailyWellnessLog[]>([]);
+  const [dailyLoads, setDailyLoads] = useState<DailyTrainingLoad[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -73,12 +86,14 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
     if (!user) return;
     try {
       setLoadingData(true);
-      const [acts, logs] = await Promise.all([
+      const [acts, logs, loads] = await Promise.all([
         getActivities(user.uid),
-        getWellnessLogs(user.uid)
+        getWellnessLogs(user.uid),
+        getDailyLoads(user.uid)
       ]);
       setActivities(acts.sort((a, b) => (b.startDateLocal || b.startDate || '').localeCompare(a.startDateLocal || a.startDate || '')));
       setWellnessLogs(logs.sort((a, b) => b.date.localeCompare(a.date)));
+      setDailyLoads(loads.sort((a, b) => b.date.localeCompare(a.date)));
     } catch (e) {
       console.error('Error loading dashboard data:', e);
     } finally {
@@ -248,7 +263,7 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
           <div className="space-y-1">
             <span className="text-[11px] text-zinc-500 font-semibold uppercase tracking-wider px-3 mb-2 block">WELLNESS</span>
              <button
-              onClick={() => handleTabChange('wellness')}
+              onClick={() => router.push('/wellness')}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                 activeTab === 'wellness' ? 'bg-[#FC5200]/10 text-[#FC5200]' : 'text-zinc-400 hover:text-white hover:bg-white/5'
               }`}
@@ -296,68 +311,310 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
         <div className="max-w-[1400px] mx-auto p-4 md:p-8 lg:p-12 space-y-8">
 
           {/* THREE MAIN SECTION HUD TELEMETRIES (DASHBOARD HUD SUMMARY) */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
-            {/* PANEL 1: CARDIO POWER */}
-            <div className="bg-[#111113] border border-white/10 p-6 rounded-xl flex justify-between items-center transition-all hover:border-white/20 hover:shadow-lg">
-              <div>
-                <span className="text-xs text-zinc-400 font-semibold tracking-wider uppercase block">VDOT SCORE</span>
-                <div className="font-mono text-3xl md:text-4xl font-bold tracking-tight text-white mt-1.5">{athleteProfile?.vdotScore || '—'}</div>
-                <p className="text-xs text-zinc-500 mt-1">Current endurance fitness level</p>
-              </div>
-              <button 
-                onClick={() => router.push('/vdot-calculator')}
-                className="p-3 border border-white/10 hover:border-[#FC5200] text-zinc-400 hover:text-[#FC5200] rounded-lg hover:bg-[#FC5200]/10 transition-all"
-              >
-                <Calculator className="w-5 h-5" />
-              </button>
-            </div>
+          <div className="grid grid-cols-2 lg:grid-cols-6 gap-6">
 
-            {/* PANEL 2: PHYSIOLOGY BASE */}
-            <div className="bg-[#111113] border border-white/10 p-6 rounded-xl flex justify-between items-center transition-all hover:border-white/20 hover:shadow-lg">
-              <div>
-                <span className="text-xs text-zinc-400 font-semibold tracking-wider uppercase block">RESTING HEART RATE</span>
-                <div className="font-mono text-3xl md:text-4xl font-bold tracking-tight text-[#FC5200] mt-1.5">
-                  {athleteProfile?.restingHR ? `${athleteProfile.restingHR} BPM` : '—'}
-                </div>
-                <p className="text-xs text-zinc-500 mt-1">Current waking baseline</p>
-              </div>
-              <button
-                onClick={() => router.push('/hr-calculator')}
-                className="p-3 border border-white/10 hover:border-[#FC5200] text-zinc-400 hover:text-[#FC5200] rounded-lg hover:bg-[#FC5200]/10 transition-all"
-              >
-                <Heart className="w-5 h-5" />
-              </button>
-            </div>
+            {(() => {
+               const latestLoad = dailyLoads[0];
+               const latestWellness = wellnessLogs[0];
+               const hasLoadVal = latestLoad?.fitnessCtl !== undefined && latestLoad?.fitnessCtl !== null;
+               const hasFatigueVal = latestLoad?.fatigueAtl !== undefined && latestLoad?.fatigueAtl !== null;
+               const hasFormVal = latestLoad?.formTsb !== undefined && latestLoad?.formTsb !== null;
+               const hasHRV = latestWellness?.hrvRmssd !== undefined && latestWellness?.hrvRmssd !== null;
+               const hasWellness = latestWellness?.soreness !== undefined && latestWellness?.soreness !== null;
 
-            {/* PANEL 3: ACWR RISK METRIC */}
-            <div className="bg-[#111113] border border-white/10 p-6 rounded-xl flex justify-between items-center transition-all hover:border-white/20 hover:shadow-lg">
-              <div>
-                <span className="text-xs text-zinc-400 font-semibold tracking-wider uppercase block">TRAINING LOAD RATIO</span>
-                <div className="font-mono text-3xl md:text-4xl font-bold tracking-tight text-white mt-1.5">{acwrValue ? acwrValue : '—'}</div>
-                <span className="text-xs text-zinc-500 mt-1 block truncate">
-                  {acwrValue === 0 
-                    ? 'No activities registered' 
-                    : acwrValue <= 1.3 
-                    ? 'Optimal conditioning' 
-                    : 'High risk strain'
-                  }
-                </span>
-              </div>
-              <button
-                onClick={() => router.push('/training')}
-                className="p-3 border border-white/10 hover:border-[#FC5200] text-zinc-400 hover:text-[#FC5200] rounded-lg hover:bg-[#FC5200]/10 transition-all"
-              >
-                <TrendingUp className="w-5 h-5" />
-              </button>
-            </div>
+               // Compute deterministic readiness score
+               const tsbVal = latestLoad?.formTsb ?? null;
+               const hrvVal = latestWellness?.hrvRmssd ?? null;
+               const rhrVal = latestWellness?.restingHeartRate ?? null;
+               const sleepVal = latestWellness?.sleepDurationHours ?? null;
+               const fatigueVal = latestWellness?.fatigue ?? null;
+               const sorenessVal = latestWellness?.soreness ?? null;
+               const stressVal = latestWellness?.stress ?? null;
+               const moodVal = latestWellness?.mood ?? null;
+
+               const hasTsb = tsbVal !== null;
+               const hasHrv = hrvVal !== null;
+               const hasRhr = rhrVal !== null;
+               const hasSleep = sleepVal !== null;
+               const hasSubjective = fatigueVal !== null && sorenessVal !== null && stressVal !== null && moodVal !== null;
+
+               const presentItemsCount = 
+                 (hasTsb ? 1 : 0) + 
+                 (hasHrv ? 1 : 0) + 
+                 (hasRhr ? 1 : 0) + 
+                 (hasSleep ? 1 : 0) + 
+                 (hasSubjective ? 1 : 0);
+
+               let readinessScore: number | null = null;
+               let isEstimated = false;
+
+               if (presentItemsCount >= 2) {
+                 let weightedSum = 0;
+                 let weightTotal = 0;
+
+                 if (hasTsb) {
+                   let tsbScoreContribution = 0;
+                   if (tsbVal! >= 5 && tsbVal! <= 15) {
+                     tsbScoreContribution = 100;
+                   } else if (tsbVal! > 15) {
+                     tsbScoreContribution = Math.max(70, Math.min(100, 100 - (tsbVal! - 15) * 1.5));
+                   } else {
+                     tsbScoreContribution = Math.max(10, Math.min(100, 80 + tsbVal! * 2.0));
+                   }
+                   weightedSum += tsbScoreContribution * 0.35;
+                   weightTotal += 0.35;
+                 }
+
+                 if (hasHrv) {
+                   let hrvScoreContribution = 0;
+                   if (hrvVal! >= 70) {
+                     hrvScoreContribution = 100;
+                   } else if (hrvVal! <= 25) {
+                     hrvScoreContribution = 20;
+                   } else {
+                     hrvScoreContribution = Math.max(20, Math.min(100, 20 + (hrvVal! - 25) * 1.77));
+                   }
+                   weightedSum += hrvScoreContribution * 0.25;
+                   weightTotal += 0.25;
+                 }
+
+                 if (hasRhr) {
+                   let rhrScoreContribution = 0;
+                   if (rhrVal! <= 52) {
+                     rhrScoreContribution = 100;
+                   } else if (rhrVal! >= 80) {
+                     rhrScoreContribution = 15;
+                   } else {
+                     rhrScoreContribution = Math.max(15, Math.min(100, 100 - (rhrVal! - 52) * 3));
+                   }
+                   weightedSum += rhrScoreContribution * 0.15;
+                   weightTotal += 0.15;
+                 }
+
+                 if (hasSleep) {
+                   let sleepScoreContribution = 0;
+                   if (sleepVal! >= 8.2) {
+                     sleepScoreContribution = 100;
+                   } else if (sleepVal! <= 5) {
+                     sleepScoreContribution = 20;
+                   } else {
+                     sleepScoreContribution = Math.max(20, Math.min(100, 20 + (sleepVal! - 5) * 25));
+                   }
+                   weightedSum += sleepScoreContribution * 0.15;
+                   weightTotal += 0.15;
+                 }
+
+                 if (hasSubjective) {
+                   const fatigueComp = (6 - fatigueVal!) * 20;
+                   const sorenessComp = (6 - sorenessVal!) * 20;
+                   const stressComp = (6 - stressVal!) * 20;
+                   const moodComp = moodVal! * 20;
+                   const subjectiveScoreContribution = (fatigueComp + sorenessComp + stressComp + moodComp) / 4;
+                   
+                   weightedSum += subjectiveScoreContribution * 0.10;
+                   weightTotal += 0.10;
+                 }
+
+                 readinessScore = Math.round(weightedSum / weightTotal);
+                 if (presentItemsCount < 5) {
+                   isEstimated = true;
+                 }
+               }
+
+               const isIntervalsDataPresent = hasLoadVal || hasFatigueVal || hasFormVal || hasHRV || hasWellness;
+
+               if (!isIntervalsDataPresent) {
+                 return (
+                   <div className="col-span-2 lg:col-span-6 bg-[#111113] border border-white/10 p-6 rounded-xl text-center space-y-4">
+                     <HeartPulse className="w-8 h-8 text-zinc-500 mx-auto" />
+                     <p className="text-zinc-400 font-medium text-sm">Connect Intervals.icu to import training load and wellness data.</p>
+                     <button
+                       onClick={() => router.push('/settings')}
+                       className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold uppercase rounded transition-colors"
+                     >
+                       Go to Settings
+                     </button>
+                   </div>
+                 );
+               }
+
+               return (
+                 <>
+                   {/* FITNESS CTL */}
+                   <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all">
+                     <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">FITNESS CTL</span>
+                     {hasLoadVal ? (
+                       <div className="font-mono text-2xl font-bold tracking-tight text-white mt-1.5">
+                         {Math.round(latestLoad.fitnessCtl!)}
+                       </div>
+                     ) : (
+                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Sync Intervals.icu load data</div>
+                     )}
+                   </div>
+
+                   {/* FATIGUE ATL */}
+                   <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all">
+                     <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">FATIGUE ATL</span>
+                     {hasFatigueVal ? (
+                       <div className="font-mono text-2xl font-bold tracking-tight text-white mt-1.5">
+                         {Math.round(latestLoad.fatigueAtl!)}
+                       </div>
+                     ) : (
+                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Sync Intervals.icu load data</div>
+                     )}
+                   </div>
+
+                   {/* FORM TSB */}
+                   <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all">
+                     <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">FORM TSB</span>
+                     {hasFormVal ? (
+                       <div className="font-mono text-2xl font-bold tracking-tight text-emerald-400 mt-1.5">
+                         {latestLoad.formTsb! > 0 ? `+${Math.round(latestLoad.formTsb!)}` : Math.round(latestLoad.formTsb!)}
+                       </div>
+                     ) : (
+                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Sync Intervals.icu load data</div>
+                     )}
+                   </div>
+                   
+                   {/* READINESS */}
+                   <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all">
+                     <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">READINESS</span>
+                     {readinessScore !== null ? (
+                       <div className="mt-1.5">
+                         <div className="font-mono text-2xl font-bold tracking-tight text-[#FC5200]">
+                           {readinessScore}%
+                         </div>
+                         <span className="text-[8px] text-zinc-500 font-bold uppercase tracking-wider block mt-0.5">
+                           {isEstimated ? 'Estimated score' : 'Fully determined'}
+                         </span>
+                       </div>
+                     ) : (
+                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-semibold mt-1.5 leading-tight">Not enough data to calculate</div>
+                     )}
+                   </div>
+
+                   {/* WELLNESS SCORE */}
+                   <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all">
+                     <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">WELLNESS SCORE</span>
+                     {hasWellness ? (
+                       <div className="font-mono text-2xl font-bold tracking-tight text-white mt-1.5">
+                         {Math.round((latestWellness.soreness || 0) + (latestWellness.fatigue || 0) + (latestWellness.stress || 0) + (latestWellness.mood || 0))}
+                       </div>
+                     ) : (
+                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-semibold mt-1.5 leading-tight">No wellness logs synced</div>
+                     )}
+                   </div>
+
+                   {/* HRV BASELINE */}
+                   <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all">
+                     <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">HRV (RMSSD)</span>
+                     {hasHRV ? (
+                       <div className="font-mono text-2xl font-bold tracking-tight text-white mt-1.5">
+                         {Math.round(latestWellness.hrvRmssd!)} <span className="text-xs text-zinc-500">ms</span>
+                       </div>
+                     ) : (
+                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-semibold mt-1.5 leading-tight font-bold">No HRV data synced</div>
+                     )}
+                   </div>
+                 </>
+               );
+
+            })()}
 
           </div>
 
           {/* ================= TAB 1: THE DASHBOARD (18 SPECIALIST LABORATORIES) ================= */}
           {activeTab === 'dashboard' && (
             <div className="space-y-10 animate-fade-in">
-              
+
+              {/* PERFORMANCE MANAGEMENT CHART */}
+              <div className="bg-[#111113] border border-white/10 rounded-xl p-6">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                  <div>
+                    <h2 className="text-xs text-zinc-500 font-bold tracking-widest uppercase">Performance Management Chart</h2>
+                    <p className="text-[10px] text-zinc-400 mt-1 uppercase font-semibold">Real-time physiological modeling (CTL, ATL, TSB)</p>
+                  </div>
+                </div>
+
+                {dailyLoads.length === 0 ? (
+                  <div className="h-64 border border-dashed border-white/10 rounded-lg flex flex-col items-center justify-center text-center space-y-4 p-8">
+                    <Database className="w-8 h-8 text-zinc-600" />
+                    <p className="text-sm text-[#FC5200] font-semibold uppercase font-mono">Real training load unpopulated</p>
+                    <p className="text-xs text-zinc-500 max-w-sm leading-relaxed uppercase">
+                      Connect and sync Intervals.icu training load parameters inside Settings to unlock PMC.
+                    </p>
+                  </div>
+                ) : dailyLoads.length < 7 ? (
+                  <div className="h-64 border border-dashed border-white/10 rounded-lg flex flex-col items-center justify-center text-center space-y-3 p-8">
+                    <Info className="w-8 h-8 text-yellow-500/80" />
+                    <p className="text-sm text-zinc-400 font-semibold uppercase font-mono">More load data is required to show this chart</p>
+                    <p className="text-xs text-zinc-500 max-w-sm uppercase font-semibold">Requires at least 7 synced historical training days.</p>
+                  </div>
+                ) : (
+                  <div className="h-64 w-full mt-2">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={[...dailyLoads].sort((a, b) => a.date.localeCompare(b.date)).slice(-30).map(load => ({
+                        date: load.date,
+                        shortDate: new Date(load.date).toLocaleDateString(undefined, { month: 'numeric', day: 'numeric' }),
+                        CTL: load.fitnessCtl ?? null,
+                        ATL: load.fatigueAtl ?? null,
+                        TSB: load.formTsb ?? null,
+                      }))} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#27272a" vertical={false} />
+                        <XAxis 
+                          dataKey="shortDate" 
+                          stroke="#52525b" 
+                          fontSize={10} 
+                          tickLine={false}
+                          axisLine={false}
+                          tickMargin={10}
+                        />
+                        <YAxis 
+                          stroke="#52525b" 
+                          fontSize={10} 
+                          tickLine={false}
+                          axisLine={false}
+                          domain={['auto', 'auto']}
+                        />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#18181b', borderColor: '#3f3f46', fontSize: '12px' }}
+                          itemStyle={{ color: '#e4e4e7', fontWeight: 600 }}
+                          labelStyle={{ color: '#a1a1aa', marginBottom: '4px' }}
+                        />
+                        <Legend verticalAlign="top" height={36} iconSize={10} iconType="circle" wrapperStyle={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em' }} />
+                        <Line 
+                          type="monotone" 
+                          dataKey="CTL" 
+                          name="Fitness (CTL)"
+                          stroke="#3b82f6" 
+                          strokeWidth={2} 
+                          dot={false}
+                          activeDot={{ r: 4 }} 
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="ATL" 
+                          name="Fatigue (ATL)"
+                          stroke="#f59e0b" 
+                          strokeWidth={1.5} 
+                          dot={false}
+                          activeDot={{ r: 4 }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="TSB" 
+                          name="Form (TSB)"
+                          stroke="#10b981" 
+                          strokeWidth={1.5} 
+                          dot={false}
+                          activeDot={{ r: 4 }}
+                        />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
+              </div>
+
               {/* LAB CATEGORY 1 */}
               <div className="space-y-5">
                 <div className="border-l-2 border-[#FC5200] pl-4 py-1">
@@ -950,22 +1207,22 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
                               {new Date(log.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric'})}
                             </td>
                             <td className="p-4 text-right">
-                              <span className="font-mono text-sm text-zinc-300">{log.wakingHR ? `${log.wakingHR} bpm` : '—'}</span>
+                              <span className="font-mono text-sm text-zinc-300">{log.restingHeartRate ? `${log.restingHeartRate} bpm` : '—'}</span>
                             </td>
                             <td className="p-4 text-right">
                               <span className="font-mono text-sm text-zinc-300">{log.hrvRmssd ? `${log.hrvRmssd} ms` : '—'}</span>
                             </td>
                             <td className="p-4 text-center">
-                              <span className="font-mono text-sm text-zinc-300">{log.fatigueRating ? `${log.fatigueRating}` : '—'}</span>
+                              <span className="font-mono text-sm text-zinc-300">{log.fatigue ? `${log.fatigue}` : '—'}</span>
                             </td>
                             <td className="p-4 text-center">
-                              <span className="font-mono text-sm text-zinc-300">{log.muscleSoreness ? `${log.muscleSoreness}` : '—'}</span>
+                              <span className="font-mono text-sm text-zinc-300">{log.soreness ? `${log.soreness}` : '—'}</span>
                             </td>
                             <td className="p-4 text-right">
-                              <span className="font-mono text-sm text-zinc-300">{log.sleepHours ? `${log.sleepHours}h` : '—'}</span>
+                              <span className="font-mono text-sm text-zinc-300">{log.sleepDurationHours ? `${log.sleepDurationHours}h` : '—'}</span>
                             </td>
                             <td className="p-4 text-right">
-                              <span className="font-mono text-sm text-zinc-300">{log.sleepScore ? `${log.sleepScore}%` : '—'}</span>
+                              <span className="font-mono text-sm text-zinc-300">{log.sleepQuality ? `${log.sleepQuality}%` : '—'}</span>
                             </td>
                           </tr>
                         ))}

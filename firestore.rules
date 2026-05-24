@@ -24,6 +24,27 @@ service cloud.firestore {
       match /activities/{activityId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // Daily Wellness Logs (Nested Subcollection)
+      match /wellnessLogs/{date} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Daily Loads (Nested Subcollection)
+      match /dailyLoad/{date} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Laps, Splits, Best Efforts (Nested Subcollections)
+      match /laps/{activityId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /splits/{activityId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /bestEfforts/{activityId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Keep /athletes/ collection for full support of any legacy routes

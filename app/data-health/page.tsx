@@ -41,8 +41,6 @@ import { db } from '../../lib/firebase/client';
 import { 
   athletesCollection, 
   activitiesCollection, 
-  wellnessCollection, 
-  dailyLoadsCollection,
   gearCollection,
   activityStreamsCollection 
 } from '../../lib/firebase/collections';
@@ -86,8 +84,10 @@ export default function DataHealthPage() {
 
   // Connection placeholders
   const [stravaConnected, setStravaConnected] = useState(false);
-
   const [stravaStatus, setStravaStatus] = useState<any>(null);
+
+  const [intervalsConnected, setIntervalsConnected] = useState(false);
+  const [intervalsStatus, setIntervalsStatus] = useState<any>(null);
 
   useEffect(() => {
     async function loadStrava() {
@@ -105,7 +105,21 @@ export default function DataHealthPage() {
     if (user) loadStrava();
   }, [user]);
 
-  const [intervalsConnected, setWorkoutsConnected] = useState(false);
+  useEffect(() => {
+    async function loadIntervals() {
+        if (!user) return;
+        try {
+           const token = await user.getIdToken();
+           const res = await fetch('/api/intervals/status', {
+              headers: { 'Authorization': `Bearer ${token}` }
+           });
+           if (res.ok) {
+             setIntervalsStatus(await res.json());
+           }
+        } catch(e) {}
+    }
+    if (user) loadIntervals();
+  }, [user]);
 
   // Warnings collection
   const [warnings, setWarnings] = useState<AuditWarning[]>([]);
@@ -122,8 +136,8 @@ export default function DataHealthPage() {
 
       // Fetch user activities, wellness logs, and daily loads
       const actsQuery = query(activitiesCollection, where('userId', '==', uid));
-      const wellnessQuery = query(wellnessCollection, where('userId', '==', uid));
-      const dailyLoadsQuery = query(dailyLoadsCollection, where('userId', '==', uid));
+      const wellnessQuery = query(collection(db, 'users', uid, 'wellnessLogs'));
+      const dailyLoadsQuery = query(collection(db, 'users', uid, 'dailyLoad'));
       const gearQuery = query(gearCollection, where('userId', '==', uid));
 
       // Separate query fetches wrapped to survive missing collections or rules
@@ -136,11 +150,27 @@ export default function DataHealthPage() {
 
       const loadedActs = actsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as CanonicalActivity[];
       const loadedWellness = wellnessSnap.docs.map(d => ({ ...d.data(), id: d.id })) as DailyWellnessLog[];
-      const loadedLoads = dailyLoadsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as any[];
+      const loadedLoads = dailyLoadsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as DailyTrainingLoad[];
 
       setActivities(loadedActs);
       setWellnessLogs(loadedWellness);
       setDailyLoads(loadedLoads);
+
+      let hrvCount = 0;
+      let sleepCount = 0;
+      let oldestDate = '9999-12-31';
+      let newestDate = '0000-00-00';
+      loadedWellness.forEach(w => {
+         if (w.hrvRmssd != null) hrvCount++;
+         if (w.sleepDurationHours != null) sleepCount++;
+         if (w.date && w.date < oldestDate) oldestDate = w.date;
+         if (w.date && w.date > newestDate) newestDate = w.date;
+      });
+
+      let loadParamsCount = 0;
+      loadedLoads.forEach(l => {
+         if (l.fitnessCtl != null) loadParamsCount++;
+      });
 
       // Query laps
       let lapsCount = 0;
@@ -198,8 +228,13 @@ export default function DataHealthPage() {
         dailyLoad: dailyLoadsSnap.size,
         wellnessLogs: wellnessSnap.size,
         gear: gearSnap.size,
-        reports: reportsCount
-      });
+        reports: reportsCount,
+        hrvCount,
+        sleepCount,
+        oldestDate: oldestDate === '9999-12-31' ? null : oldestDate,
+        newestDate: newestDate === '0000-00-00' ? null : newestDate,
+        ctlCount: loadParamsCount,
+      } as any);
 
     } catch (err) {
       console.error('[DataHealth load error]:', err);
@@ -218,7 +253,6 @@ export default function DataHealthPage() {
     if (user) {
       fetchCountsAndData(user.uid);
       setStravaConnected(!!athleteProfile?.stravaConnected);
-      setWorkoutsConnected(!!athleteProfile?.intervalsConnected);
     }
   }, [user, athleteProfile, authLoading, router]);
 
@@ -388,6 +422,78 @@ export default function DataHealthPage() {
       }
     });
 
+    // 11. Wellness Logs Analytics Audit
+    wellnessLogs.forEach(w => {
+      if (!w.date) {
+        detectedWarnings.push({
+          id: `wellness_missing_date_${w.id}`,
+          category: 'wellness',
+          severity: 'high',
+          message: `Wellness log has an invalid or missing date field.`,
+          affectedId: w.id
+        });
+      }
+      if (w.hrvRmssd === undefined || w.hrvRmssd === null) {
+        detectedWarnings.push({
+          id: `wellness_missing_hrv_${w.date || w.id}`,
+          category: 'wellness',
+          severity: 'low',
+          message: `Wellness record for ${w.date || 'unknown date'} is missing HRV (RMSSD) value. This is expected if syncing without an HRV device.`,
+          affectedId: w.id
+        });
+      }
+      if (w.restingHeartRate === undefined || w.restingHeartRate === null) {
+        detectedWarnings.push({
+          id: `wellness_missing_rhr_${w.date || w.id}`,
+          category: 'wellness',
+          severity: 'low',
+          message: `Wellness record for ${w.date || 'unknown date'} is missing Resting Heart Rate (RHR).`,
+          affectedId: w.id
+        });
+      }
+    });
+
+    // 12. Daily Training Load Audit
+    dailyLoads.forEach((load) => {
+      const l = load as DailyTrainingLoad;
+      if (!l.date) {
+        detectedWarnings.push({
+          id: `load_missing_date_${l.id}`,
+          category: 'load',
+          severity: 'high',
+          message: `Daily training load log has an invalid or missing date field.`,
+          affectedId: l.id
+        });
+      }
+      if (l.fitnessCtl === undefined || l.fitnessCtl === null) {
+        detectedWarnings.push({
+          id: `load_missing_ctl_${l.date || l.id}`,
+          category: 'load',
+          severity: 'medium',
+          message: `Training load record for ${l.date || 'unknown date'} is missing Fitness (CTL). This is required for PMC charting.`,
+          affectedId: l.id
+        });
+      }
+      if (l.fatigueAtl === undefined || l.fatigueAtl === null) {
+        detectedWarnings.push({
+          id: `load_missing_atl_${l.date || l.id}`,
+          category: 'load',
+          severity: 'medium',
+          message: `Training load record for ${l.date || 'unknown date'} is missing Fatigue (ATL). This is required for PMC charting.`,
+          affectedId: l.id
+        });
+      }
+      if (l.formTsb === undefined || l.formTsb === null) {
+        detectedWarnings.push({
+          id: `load_missing_tsb_${l.date || l.id}`,
+          category: 'load',
+          severity: 'medium',
+          message: `Training load record for ${l.date || 'unknown date'} is missing Form (TSB). This is required for PMC charting.`,
+          affectedId: l.id
+        });
+      }
+    });
+
     setWarnings(detectedWarnings);
     setAuditing(false);
     setAuditRun(true);
@@ -515,38 +621,57 @@ export default function DataHealthPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-3 gap-3 pt-2 font-mono">
+              <div className="grid grid-cols-3 md:grid-cols-4 gap-3 pt-2 font-mono mt-4">
                 <div className="bg-zinc-800/50/40 border border-white/10 p-2.5 rounded text-center">
-                  <span className="text-xs text-zinc-400 block uppercase font-bold">Activities</span>
-                  <p className="text-sm font-extrabold text-zinc-200 mt-1">{counts.activities}</p>
+                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Activities</span>
+                  <p className="text-sm font-extrabold text-white mt-1">{counts.activities}</p>
                 </div>
                 <div className="bg-zinc-800/50/40 border border-white/10 p-2.5 rounded text-center">
-                  <span className="text-xs text-zinc-400 block uppercase font-bold">Streams</span>
-                  <p className="text-sm font-extrabold text-zinc-200 mt-1">{counts.streams}</p>
+                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Streams</span>
+                  <p className="text-sm font-extrabold text-white mt-1">{counts.streams}</p>
                 </div>
                 <div className="bg-zinc-800/50/40 border border-white/10 p-2.5 rounded text-center">
-                  <span className="text-xs text-zinc-400 block uppercase font-bold">Laps Logs</span>
-                  <p className="text-sm font-extrabold text-zinc-200 mt-1">{counts.laps}</p>
+                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Laps</span>
+                  <p className="text-sm font-extrabold text-white mt-1">{counts.laps}</p>
                 </div>
                 <div className="bg-zinc-800/50/40 border border-white/10 p-2.5 rounded text-center">
-                  <span className="text-xs text-zinc-400 block uppercase font-bold">Best Effort</span>
-                  <p className="text-sm font-extrabold text-zinc-200 mt-1">{counts.bestEfforts}</p>
+                  <span className="text-[10px] text-zinc-400 block uppercase font-bold">Efforts</span>
+                  <p className="text-sm font-extrabold text-white mt-1">{counts.bestEfforts}</p>
                 </div>
-                <div className="bg-zinc-800/50/40 border border-white/10 p-2.5 rounded text-center">
-                  <span className="text-xs text-zinc-400 block uppercase font-bold">Daily Loads</span>
-                  <p className="text-sm font-extrabold text-zinc-200 mt-1">{counts.dailyLoad}</p>
+              </div>
+              
+              <div className="border border-white/10 p-4 rounded bg-zinc-800/50/20 space-y-3.5 text-xs text-zinc-400 mt-4 font-mono">
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                   <span className="text-zinc-400 uppercase text-[9.5px]">Daily Load Records</span>
+                   <span className="text-zinc-300 font-bold">{counts.dailyLoad || 0}</span>
                 </div>
-                <div className="bg-zinc-800/50/40 border border-white/10 p-2.5 rounded text-center">
-                  <span className="text-xs text-zinc-400 block uppercase font-bold">Wellness</span>
-                  <p className="text-sm font-extrabold text-zinc-200 mt-1">{counts.wellnessLogs}</p>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                   <span className="text-zinc-400 uppercase text-[9.5px]">Wellness Logs</span>
+                   <span className="text-zinc-300 font-bold">{counts.wellnessLogs || 0}</span>
                 </div>
-                <div className="bg-zinc-800/50/40 border border-white/10 p-2.5 rounded text-center">
-                  <span className="text-xs text-zinc-400 block uppercase font-bold">Athletic Gear</span>
-                  <p className="text-sm font-extrabold text-zinc-200 mt-1">{counts.gear}</p>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                   <span className="text-zinc-400 uppercase text-[9.5px]">HRV Datapoints</span>
+                   <span className="text-zinc-300">{(counts as any).hrvCount || 0}</span>
                 </div>
-                <div className="bg-zinc-800/50/40 border border-white/10 p-2.5 rounded text-center col-span-2">
-                  <span className="text-xs text-zinc-400 block uppercase font-bold">Consolidated Reports</span>
-                  <p className="text-sm font-extrabold text-[#FC5200] mt-1">{counts.reports}</p>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                   <span className="text-zinc-400 uppercase text-[9.5px]">Sleep Logs</span>
+                   <span className="text-zinc-300">{(counts as any).sleepCount || 0}</span>
+                </div>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                   <span className="text-zinc-400 uppercase text-[9.5px]">CTL/ATL Availability</span>
+                   <span className="text-zinc-300">{(counts as any).ctlCount || 0}</span>
+                </div>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                   <span className="text-zinc-400 uppercase text-[9.5px]">Oldest Data</span>
+                   <span className="text-zinc-300">{(counts as any).oldestDate || '—'}</span>
+                </div>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                   <span className="text-zinc-400 uppercase text-[9.5px]">Newest Data</span>
+                   <span className="text-zinc-300">{(counts as any).newestDate || '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                   <span className="text-zinc-400 uppercase text-[9.5px]">Reports Generated</span>
+                   <span className="text-[#FC5200] font-bold">{counts.reports}</span>
                 </div>
               </div>
             </div>
@@ -612,6 +737,62 @@ export default function DataHealthPage() {
             >
               <Cable className="w-3.5 h-3.5" />
               <span>{stravaStatus?.connected ? 'Manage Connection' : 'Connect in Settings'}</span>
+            </button>
+          </div>
+
+          {/* 1.5. INTERVALS CONNECTION */}
+          <div className="bg-[#111113] border border-white/10 rounded-lg p-6 flex flex-col justify-between">
+            <div className="space-y-4">
+              <div>
+                <span className="text-xs text-[#FC5200] font-semibold tracking-wider uppercase">SYNC SOURCE</span>
+                <div className="flex justify-between items-center mt-1">
+                  <h3 className="text-sm font-bold text-white uppercase tracking-wider">Intervals.icu Portal</h3>
+                  {intervalsStatus?.connected ? (
+                    <span className="px-2 py-0.5 border border-emerald-900/60 bg-emerald-950/20 text-emerald-400 text-[9.5px] uppercase font-extrabold rounded">
+                      CONNECTED
+                    </span>
+                  ) : (
+                    <span className="px-2 py-0.5 border border-white/10 bg-zinc-800/50 text-zinc-500 text-xs uppercase font-bold rounded">
+                      NOT CONNECTED
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="border border-white/10 p-4 rounded bg-zinc-800/50/20 space-y-3.5 text-xs text-zinc-400">
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                  <span className="text-zinc-400 uppercase text-[9.5px]">Auth Method</span>
+                  <span className="text-zinc-300">
+                    {intervalsStatus?.connected ? (intervalsStatus.authMethod === 'oauth' ? 'OAuth 2.0' : 'API Key') : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                  <span className="text-zinc-400 uppercase text-[9.5px]">Athlete ID</span>
+                  <span className="text-zinc-300">
+                    {intervalsStatus?.connected ? (intervalsStatus.athleteId || 'Hidden') : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-white/10 pb-2">
+                  <span className="text-zinc-400 uppercase text-[9.5px]">Last Sync Timestamp</span>
+                  <span className="text-zinc-300">
+                    {intervalsStatus?.connected && intervalsStatus.lastSyncAt ? new Date(intervalsStatus.lastSyncAt).toLocaleString() : 'NEVER SYNCED'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-zinc-400 uppercase text-[9.5px]">Sync Error State</span>
+                  <span className={intervalsStatus?.lastSyncError ? "text-red-400" : "text-emerald-400"}>
+                    {intervalsStatus?.connected ? (intervalsStatus.lastSyncError || 'NO ERRORS') : '—'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => router.push('/settings')}
+              className="mt-5 w-full bg-zinc-900 hover:bg-zinc-850 text-[#FC5200] border border-white/10 hover:border-white/20 py-2.5 rounded font-bold uppercase text-xs tracking-wider cursor-pointer transition-all inline-flex items-center justify-center gap-2"
+            >
+              <Cable className="w-3.5 h-3.5" />
+              <span>{intervalsStatus?.connected ? 'Manage Connection' : 'Connect in Settings'}</span>
             </button>
           </div>
 

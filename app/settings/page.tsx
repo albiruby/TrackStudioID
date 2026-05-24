@@ -46,6 +46,15 @@ export default function SettingsPage() {
   const [checkStrava, setCheckStrava] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
+  const [intervalsStatus, setIntervalsStatus] = useState<any>(null);
+  const [checkIntervals, setCheckIntervals] = useState(false);
+  const [isConnectingIntervals, setIsConnectingIntervals] = useState(false);
+  const [isSyncingZones, setIsSyncingZones] = useState(false);
+  const [isSyncingPlanned, setIsSyncingPlanned] = useState(false);
+  const [intervalsAthleteId, setIntervalsAthleteId] = useState('0');
+  const [intervalsApiKey, setIntervalsApiKey] = useState('');
+  const [showIntervalsForm, setShowIntervalsForm] = useState(false);
+
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleSyncStrava = async () => {
@@ -89,6 +98,22 @@ export default function SettingsPage() {
     }
     if (user) loadStrava();
   }, [user, checkStrava]);
+
+  useEffect(() => {
+    async function loadIntervals() {
+        if (!user) return;
+        try {
+           const token = await user.getIdToken();
+           const res = await fetch('/api/intervals/status', {
+              headers: { 'Authorization': `Bearer ${token}` }
+           });
+           if (res.ok) {
+             setIntervalsStatus(await res.json());
+           }
+        } catch(e) {}
+    }
+    if (user) loadIntervals();
+  }, [user, checkIntervals]);
 
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -143,6 +168,68 @@ export default function SettingsPage() {
     } catch(e) {
        console.error(e);
     }
+  };
+
+  const handleDisconnectIntervals = async () => {
+    if (!user) return;
+    if (!confirm('Disconnect Intervals.icu?')) return;
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch('/api/intervals/disconnect', {
+         method: 'POST',
+         headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        setCheckIntervals(prev => !prev);
+      } else {
+        alert('Failed to disconnect Intervals.icu');
+      }
+    } catch(e) {
+       console.error(e);
+    }
+  };
+
+  const handleConnectIntervalsOAuth = async () => {
+      if (!user) return;
+      setIsConnectingIntervals(true);
+      try {
+        const authWindow = window.open(`/api/intervals/connect?userId=${user.uid}`, 'IntervalsAuth', 'width=600,height=700');
+        if (!authWindow) alert('Please allow popups to connect Intervals.icu');
+      } catch (error) {
+        console.error('Error connecting intervals', error);
+      } finally {
+        setIsConnectingIntervals(false);
+      }
+  };
+
+  const handleConnectIntervalsApiKey = async (e: React.FormEvent) => {
+     e.preventDefault();
+     if (!user || !intervalsApiKey) return;
+     setIsConnectingIntervals(true);
+     try {
+       const token = await user.getIdToken();
+       const res = await fetch('/api/intervals/connect-api-key', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ athleteId: intervalsAthleteId, apiKey: intervalsApiKey })
+       });
+       if (res.ok) {
+          setShowIntervalsForm(false);
+          setIntervalsApiKey('');
+          setCheckIntervals(prev => !prev);
+       } else {
+          const data = await res.json();
+          alert('Failed to connect Intervals.icu API Key: ' + data.error);
+       }
+     } catch (err) {
+       console.error(err);
+       alert('Failed to connect API Key');
+     } finally {
+       setIsConnectingIntervals(false);
+     }
   };
 
 
@@ -523,9 +610,9 @@ export default function SettingsPage() {
             <div className="border border-white/10 rounded-lg bg-zinc-955 p-5 flex flex-col justify-between relative overflow-hidden">
               <div className="space-y-4">
                 <div className="flex justify-between items-start">
-                  <h4 className="font-heading text-xl font-bold text-white uppercase tracking-wide">Workouts.icu Portal</h4>
-                  <span className="px-2 py-0.5 border border-white/10 bg-zinc-900 text-zinc-500 text-xs uppercase font-bold rounded">
-                    Setup required
+                  <h4 className="font-heading text-xl font-bold text-white uppercase tracking-wide">Intervals.icu Portal</h4>
+                  <span className={`px-2 py-0.5 border ${intervalsStatus?.connected ? 'border-emerald-900/60 bg-emerald-950/20 text-emerald-400' : 'border-white/10 bg-zinc-900 text-zinc-500'} text-xs uppercase font-bold rounded`}>
+                    {intervalsStatus?.connected ? 'CONNECTED' : 'SETUP REQUIRED'}
                   </span>
                 </div>
 
@@ -536,21 +623,200 @@ export default function SettingsPage() {
                 <div className="bg-zinc-800/50/20 border border-white/10 text-xs p-3 rounded font-mono space-y-1.5 text-zinc-400 leading-relaxed">
                   <div className="flex justify-between">
                     <span>API KEY STORAGE:</span>
-                    <span className="text-zinc-600">GATED / CONFINED</span>
+                    <span className={intervalsStatus?.connected ? 'text-emerald-500 font-bold' : 'text-zinc-600'}>
+                      {intervalsStatus?.connected ? 'GATED' : 'CONFINED'}
+                    </span>
                   </div>
-                  <div className="text-xs">
-                    * Private athlete credentials and secret keys must never write or leak to the frontend client. Integration requires secure server proxy routes.
-                  </div>
+                  {intervalsStatus?.connected && (
+                    <div className="pt-2 border-t border-white/10 mt-2">
+                       <div className="flex justify-between">
+                         <span className="text-zinc-500">Method:</span>
+                         <span className="text-white">{intervalsStatus.authMethod === 'oauth' ? 'OAuth 2.0' : 'API Key'}</span>
+                       </div>
+                       <div className="flex justify-between mt-1">
+                         <span className="text-zinc-500">Athlete ID:</span>
+                         <span className="text-zinc-300">{intervalsStatus.athleteId || 'Hidden'}</span>
+                       </div>
+                       {intervalsStatus.lastSyncError && (
+                         <div className="flex justify-between mt-1">
+                           <span className="text-zinc-500">Error:</span>
+                           <span className="text-red-500">{intervalsStatus.lastSyncError}</span>
+                         </div>
+                       )}
+                       <div className="flex justify-between mt-1">
+                         <span className="text-zinc-500">Last Sync:</span>
+                         <span className="text-zinc-300">{intervalsStatus.lastSyncAt ? new Date(intervalsStatus.lastSyncAt).toLocaleString() : 'Never'}</span>
+                       </div>
+                    </div>
+                  )}
+                  {!intervalsStatus?.connected && (
+                    <div className="text-xs mt-2">
+                      * Connect Intervals.icu to import training load, wellness, HRV, and planned workouts. Private athlete credentials and secret keys must never write or leak to the frontend client. Integration requires secure server proxy routes.
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <button
-                type="button"
-                className="mt-6 w-full text-zinc-400 bg-zinc-800/50 border border-white/10 p-2 rounded text-xs uppercase font-bold tracking-wider opacity-60 cursor-not-allowed cursor-pointer"
-                disabled
-              >
-                SECURE INTERVALS API KEY INJECT
-              </button>
+              {intervalsStatus?.connected ? (
+                 <button
+                   type="button"
+                   onClick={handleDisconnectIntervals}
+                   className="mt-6 w-full text-red-400 bg-red-950/20 border border-red-900/40 hover:bg-red-950/40 transition-colors p-2 rounded text-xs uppercase font-bold tracking-wider cursor-pointer"
+                 >
+                   DISCONNECT INTERVALS
+                 </button>
+              ) : (
+                <div className="mt-6">
+                  {intervalsStatus?.hasOAuth ? (
+                     <button
+                       type="button"
+                       onClick={handleConnectIntervalsOAuth}
+                       disabled={isConnectingIntervals}
+                       className="w-full text-[#FC5200] bg-[#FC5200]/10 hover:bg-[#FC5200]/20 border border-[#FC5200]/30 p-2 rounded text-xs uppercase font-bold tracking-wider cursor-pointer transition-colors disabled:opacity-50"
+                     >
+                       {isConnectingIntervals ? 'CONNECTING...' : 'CONNECT WITH OAUTH 2.0'}
+                     </button>
+                  ) : (
+                     <>
+                        <button
+                          type="button"
+                          onClick={() => setShowIntervalsForm(!showIntervalsForm)}
+                          className="w-full text-zinc-300 bg-zinc-800/50 hover:bg-zinc-700/50 border border-white/10 p-2 rounded text-xs uppercase font-bold tracking-wider cursor-pointer transition-colors"
+                        >
+                          {showIntervalsForm ? 'CANCEL' : 'SECURE API KEY INJECT (PRIVATE MVP ONLY)'}
+                        </button>
+                        {showIntervalsForm && (
+                          <form onSubmit={handleConnectIntervalsApiKey} className="mt-4 p-4 border border-indigo-900/40 bg-indigo-950/10 rounded-lg space-y-4">
+                             <div className="text-xs text-indigo-400 mb-2 font-mono">
+                               API key connection is intended for private use. For public deployment, use OAuth.
+                             </div>
+                             <div>
+                               <label className="block text-xs uppercase font-bold text-zinc-400 tracking-wider mb-1.5">Athlete ID (Optional)</label>
+                               <input 
+                                 type="text" 
+                                 placeholder="e.g. 0" 
+                                 value={intervalsAthleteId}
+                                 onChange={(e) => setIntervalsAthleteId(e.target.value)}
+                                 className="w-full bg-zinc-900 border border-white/10 text-white rounded p-2 text-sm focus:outline-none focus:border-indigo-500 font-mono transition-colors"
+                               />
+                             </div>
+                             <div>
+                               <label className="block text-xs uppercase font-bold text-zinc-400 tracking-wider mb-1.5">API Key</label>
+                               <input 
+                                 type="password" 
+                                 required
+                                 value={intervalsApiKey}
+                                 onChange={(e) => setIntervalsApiKey(e.target.value)}
+                                 className="w-full bg-zinc-900 border border-white/10 text-white rounded p-2 text-sm focus:outline-none focus:border-indigo-500 font-mono transition-colors"
+                               />
+                             </div>
+                             <button
+                                type="submit"
+                                disabled={isConnectingIntervals || !intervalsApiKey}
+                                className="w-full text-indigo-400 bg-indigo-950/40 hover:bg-indigo-900/40 border border-indigo-900/60 p-2 rounded text-xs uppercase font-bold tracking-wider cursor-pointer transition-colors disabled:opacity-50 mt-2"
+                             >
+                               {isConnectingIntervals ? 'INJECTING...' : 'INJECT SECURE CREDENTIALS'}
+                             </button>
+                          </form>
+                        )}
+                     </>
+                  )}
+                </div>
+              )}
+
+              {intervalsStatus?.connected && (
+                <div className="mt-4 border-t border-white/10 pt-4 space-y-3">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                       if (!user) return;
+                       setIsConnectingIntervals(true);
+                       try {
+                         const token = await user.getIdToken();
+                         const res = await fetch('/api/intervals/sync/wellness', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                         });
+                         if (res.ok) {
+                            setCheckIntervals(prev => !prev);
+                            alert("Wellness & training loads synced successfully.");
+                         } else {
+                            const data = await res.json();
+                            alert("Sync failed: " + data.error);
+                         }
+                       } catch(e) {
+                         alert("Exception syncing");
+                       } finally {
+                         setIsConnectingIntervals(false);
+                       }
+                    }}
+                    disabled={isConnectingIntervals || isSyncingZones || isSyncingPlanned}
+                    className="w-full text-white bg-zinc-800 hover:bg-zinc-700 border border-white/20 p-2 rounded text-xs uppercase font-bold tracking-wider cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    {isConnectingIntervals ? 'SYNCING WELLNESS & LOAD...' : 'SYNC INTERVALS.ICU WELLNESS'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                       if (!user) return;
+                       setIsSyncingZones(true);
+                       try {
+                         const token = await user.getIdToken();
+                         const res = await fetch('/api/intervals/sync/zones', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                         });
+                         const data = await res.json();
+                         if (res.ok && data.success) {
+                            setCheckIntervals(prev => !prev);
+                            alert("Training zones synced successfully from Intervals.icu.");
+                         } else {
+                            alert("Zones sync failed: " + (data.error || 'No zones returned. Sync from Intervals.icu or enter manually.'));
+                         }
+                       } catch(e) {
+                         alert("Exception syncing zones.");
+                       } finally {
+                         setIsSyncingZones(false);
+                       }
+                    }}
+                    disabled={isConnectingIntervals || isSyncingZones || isSyncingPlanned}
+                    className="w-full text-white bg-zinc-800 hover:bg-zinc-700 border border-white/20 p-2 rounded text-xs uppercase font-bold tracking-wider cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    {isSyncingZones ? 'SYNCING TRAINING ZONES...' : 'SYNC INTERVALS.ICU ZONES'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={async () => {
+                       if (!user) return;
+                       setIsSyncingPlanned(true);
+                       try {
+                         const token = await user.getIdToken();
+                         const res = await fetch('/api/intervals/sync/planned-workouts', {
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${token}` }
+                         });
+                         const data = await res.json();
+                         if (res.ok && data.success) {
+                            setCheckIntervals(prev => !prev);
+                            alert(`Planned workouts calendar synced. Synced ${data.count || 0} scheduled sessions.`);
+                         } else {
+                            alert("Planned workouts sync failed: " + (data.error || 'API returned empty or invalid structure.'));
+                         }
+                       } catch(e) {
+                         alert("Exception syncing planned workouts.");
+                       } finally {
+                         setIsSyncingPlanned(false);
+                       }
+                    }}
+                    disabled={isConnectingIntervals || isSyncingZones || isSyncingPlanned}
+                    className="w-full text-white bg-zinc-800 hover:bg-zinc-700 border border-white/20 p-2 rounded text-xs uppercase font-bold tracking-wider cursor-pointer transition-colors disabled:opacity-50"
+                  >
+                    {isSyncingPlanned ? 'SYNCING PLANNED WORKOUTS...' : 'SYNC PLANNED WORKOUTS'}
+                  </button>
+                </div>
+              )}
             </div>
 
           </div>

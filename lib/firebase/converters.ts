@@ -96,10 +96,18 @@ export const dailyLoadConverter: FirestoreDataConverter<DailyTrainingLoad> = {
     const data = convertTimestamps(snapshot.data());
     return {
       date: snapshot.id,
-      ctl: typeof data.ctl === 'number' ? data.ctl : 0,
-      atl: typeof data.atl === 'number' ? data.atl : 0,
-      tsb: typeof data.tsb === 'number' ? data.tsb : 0,
-      trainingVolume: typeof data.trainingVolume === 'number' ? data.trainingVolume : 0,
+      id: snapshot.id,
+      userId: data.userId || '',
+      source: data.source || 'intervals',
+      fitnessCtl: typeof data.fitnessCtl === 'number' ? data.fitnessCtl : (typeof data.ctl === 'number' ? data.ctl : null),
+      fatigueAtl: typeof data.fatigueAtl === 'number' ? data.fatigueAtl : (typeof data.atl === 'number' ? data.atl : null),
+      formTsb: typeof data.formTsb === 'number' ? data.formTsb : (typeof data.tsb === 'number' ? data.tsb : null),
+      trainingLoad: typeof data.trainingLoad === 'number' ? data.trainingLoad : (typeof data.trainingVolume === 'number' ? data.trainingVolume : null),
+      acuteLoad: typeof data.acuteLoad === 'number' ? data.acuteLoad : null,
+      chronicLoad: typeof data.chronicLoad === 'number' ? data.chronicLoad : null,
+      rampRate: typeof data.rampRate === 'number' ? data.rampRate : null,
+      intensity: typeof data.intensity === 'number' ? data.intensity : null,
+      loadScore: typeof data.loadScore === 'number' ? data.loadScore : null,
     };
   }
 };
