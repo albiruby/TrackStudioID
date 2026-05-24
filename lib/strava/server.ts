@@ -11,51 +11,109 @@ function getStravaPrivateCollection(userId: string) {
 }
 
 export async function getSafeStravaStatus(userId: string) {
-  const doc = await getStravaAuthCollection(userId).get();
-  if (!doc.exists) {
+  try {
+    const doc = await getStravaAuthCollection(userId).get();
+    if (!doc.exists) {
+      return {
+        provider: "strava",
+        connected: false,
+        status: "not_connected",
+        label: "Not Connected",
+        athleteId: null,
+        athleteName: null,
+        lastSyncAt: null,
+        lastSyncError: null,
+        tokenStatus: "not_available",
+        setupRequired: true
+      };
+    }
+    const data = doc.data() as Partial<StravaConnection>;
+    
+    // Proactive Security Migration: If tokens leaked into the public connection doc, move them to private!
+    if (data.accessToken || data.refreshToken) {
+      console.log(`[Security] Migrating legacy leaked Strava tokens for user ${userId}`);
+      await saveStravaConnection(userId, data);
+    }
+
+    // Need to check private collection for expiration
+    // Use try/catch here as well in case private connection doesn't exist
+    let privDocExists = false;
+    let privData: any = null;
+    try {
+      const privDoc = await getStravaPrivateCollection(userId).get();
+      privDocExists = privDoc.exists;
+      privData = privDocExists ? privDoc.data() : null;
+    } catch(err: any) {
+       // if we hit NOT_FOUND, that's fine, we treat it as missing
+    }
+
+    const isExpired = privData && privData.expiresAt ? (privData.expiresAt * 1000) < Date.now() : false;
+
     return {
-      connected: false,
-      reauthRequired: false,
-      isExpired: false,
-      lastSyncAt: null,
-      lastSyncError: null,
+      provider: "strava",
+      connected: data.connected !== false,
+      status: data.connected !== false ? "connected" : "not_connected",
+      label: data.connected !== false ? "Connected" : "Not Connected",
+      athleteId: data.athleteId || null,
+      athleteName: data.athleteFirstname ? `${data.athleteFirstname} ${data.athleteLastname || ''}`.trim() : (data.athleteUsername || null),
+      lastSyncAt: data.lastSyncAt || null,
+      lastSyncError: data.lastSyncError || null,
+      tokenStatus: isExpired ? "expired" : "valid",
+      setupRequired: !!data.reauthRequired,
+      scopes: data.scope || null,
     };
+  } catch (err: any) {
+    if (err.code === 5 || err.code === 7 || err.message?.includes('NOT_FOUND') || err.message?.includes('Missing or insufficient permissions')) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Debug] Strava doc missing for user ${userId}`);
+      }
+      return {
+        provider: "strava",
+        connected: false,
+        status: "not_connected",
+        label: "Not Connected",
+        athleteId: null,
+        athleteName: null,
+        lastSyncAt: null,
+        lastSyncError: null,
+        tokenStatus: "not_available",
+        setupRequired: true
+      };
+    }
+    throw err;
   }
-  const data = doc.data() as Partial<StravaConnection>;
-  
-  // Proactive Security Migration: If tokens leaked into the public connection doc, move them to private!
-  if (data.accessToken || data.refreshToken) {
-    console.log(`[Security] Migrating legacy leaked Strava tokens for user ${userId}`);
-    await saveStravaConnection(userId, data);
-  }
-
-  // Need to check private collection for expiration
-  const privDoc = await getStravaPrivateCollection(userId).get();
-  const privData = privDoc.exists ? privDoc.data() : null;
-  const isExpired = privData && privData.expiresAt ? (privData.expiresAt * 1000) < Date.now() : false;
-
-  return {
-    connected: data.connected !== false,
-    reauthRequired: !!data.reauthRequired,
-    isExpired,
-    athleteName: data.athleteFirstname ? `${data.athleteFirstname} ${data.athleteLastname || ''}`.trim() : data.athleteUsername,
-    lastSyncAt: data.lastSyncAt || null,
-    lastSyncError: data.lastSyncError || null,
-    scopes: data.scope,
-  };
 }
 
 export async function getStravaConnection(userId: string): Promise<StravaConnection | null> {
-  const [doc, privDoc] = await Promise.all([
-    getStravaAuthCollection(userId).get(),
-    getStravaPrivateCollection(userId).get()
-  ]);
+  let docExists = false;
+  let docData: any = {};
+  let privDocExists = false;
+  let privDocData: any = {};
   
-  if (!doc.exists) return null;
+  try {
+    const doc = await getStravaAuthCollection(userId).get();
+    docExists = doc.exists;
+    docData = doc.data() || {};
+  } catch (err: any) {
+    if (err.code === 5 || err.code === 7 || err.message?.includes('NOT_FOUND') || err.message?.includes('Missing or insufficient permissions')) {
+      return null;
+    }
+    throw err;
+  }
+  
+  if (!docExists) return null;
+  
+  try {
+    const privDoc = await getStravaPrivateCollection(userId).get();
+    privDocExists = privDoc.exists;
+    privDocData = privDoc.data() || {};
+  } catch (err: any) {
+    // Ignore private missing doc, we just fallback to empty
+  }
   
   return {
-    ...doc.data(),
-    ...(privDoc.exists ? privDoc.data() : {})
+    ...docData,
+    ...privDocData
   } as StravaConnection;
 }
 

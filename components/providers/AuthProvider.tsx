@@ -324,6 +324,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             </div>
           </div>
         </div>
+        {/* INVISIBLE RENDER FRAME FOR NEXTJS APP ROUTER TO PREVENT <HTML> IMPORT BUG */}
+        <div className="hidden absolute opacity-0 pointer-events-none">{children}</div>
       </div>
     );
   }

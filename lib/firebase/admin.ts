@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
 import appletConfig from '../../firebase-applet-config.json';
 import { clientEnv } from '../env.client';
 
@@ -14,7 +15,6 @@ if (!admin.apps.length) {
 }
 
 export const adminDb = appletConfig.firestoreDatabaseId
-  // @ts-ignore: firestoreDatabaseId is supported in newer firebase-admin but type definitions may not be updated
-  ? admin.firestore(admin.app(), appletConfig.firestoreDatabaseId)
-  : admin.firestore();
+  ? getFirestore(admin.app(), appletConfig.firestoreDatabaseId)
+  : getFirestore(admin.app());
 export const adminAuth = admin.auth();

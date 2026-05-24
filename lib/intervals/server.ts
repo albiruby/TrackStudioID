@@ -4,30 +4,48 @@ import { IntervalsConnection, SafeIntervalsStatus } from './types';
 import { refreshIntervalsTokenIfNeeded } from './auth';
 
 export async function getIntervalsConnection(userId: string): Promise<IntervalsConnection | null> {
+  let docExists = false;
+  let docData: any = {};
+  let privDocExists = false;
+  let privDocData: any = {};
+
   try {
-    const [doc, privDoc] = await Promise.all([
-      adminDb.collection('users').doc(userId).collection('connections').doc('intervals').get(),
-      adminDb.collection('users').doc(userId).collection('privateConnections').doc('intervals').get()
-    ]);
-    
-    if (!doc.exists) return null;
-    
-    const publicData = doc.data() as Partial<IntervalsConnection>;
-    
-    // Proactive Security Migration: Move tokens to private collection if they are stored in the public doc
-    if (publicData.apiKey || publicData.accessToken || publicData.refreshToken) {
-        console.log(`[Security] Migrating legacy leaked Intervals tokens for user ${userId}`);
-        await saveIntervalsConnection(userId, { ...publicData, ...(privDoc.exists ? privDoc.data() : {}) } as IntervalsConnection);
+    const doc = await adminDb.collection('users').doc(userId).collection('connections').doc('intervals').get();
+    docExists = doc.exists;
+    docData = doc.data() || {};
+  } catch (err: any) {
+    if (err.code === 5 || err.code === 7 || err.message?.includes('NOT_FOUND') || err.message?.includes('Missing or insufficient permissions')) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`[Debug] Intervals connection doc missing for user ${userId}`);
+      }
+      return null;
     }
-    
-    return {
-      ...publicData,
-      ...(privDoc.exists ? privDoc.data() : {})
-    } as IntervalsConnection;
-  } catch (e) {
-    console.error('Error fetching intervals connection', e);
+    console.error('Error fetching intervals connection', err);
     return null;
   }
+  
+  if (!docExists) return null;
+
+  try {
+    const privDoc = await adminDb.collection('users').doc(userId).collection('privateConnections').doc('intervals').get();
+    privDocExists = privDoc.exists;
+    privDocData = privDoc.data() || {};
+  } catch (err: any) {
+    // Ignore private missing doc
+  }
+  
+  const publicData = docData as Partial<IntervalsConnection>;
+  
+  // Proactive Security Migration: Move tokens to private collection if they are stored in the public doc
+  if (publicData.apiKey || publicData.accessToken || publicData.refreshToken) {
+      console.log(`[Security] Migrating legacy leaked Intervals tokens for user ${userId}`);
+      await saveIntervalsConnection(userId, { ...publicData, ...privDocData } as IntervalsConnection);
+  }
+  
+  return {
+    ...publicData,
+    ...privDocData
+  } as IntervalsConnection;
 }
 
 export async function saveIntervalsConnection(userId: string, data: Partial<IntervalsConnection>): Promise<void> {

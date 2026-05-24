@@ -17,10 +17,13 @@ export interface IntervalsConnection {
 export interface SafeIntervalsStatus {
   provider: 'intervals';
   connected: boolean;
+  status?: string;
+  label?: string;
+  setupRequired?: boolean;
   authMethod: 'oauth' | 'api_key' | null;
   athleteId: string | null;
   athleteName: string | null;
   lastSyncAt: string | null;
   lastSyncError: string | null;
-  updatedAt: string | null;
+  updatedAt?: string | null;
 }
