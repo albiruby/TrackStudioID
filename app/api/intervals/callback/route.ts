@@ -23,9 +23,10 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const clientId = process.env.INTERVALS_CLIENT_ID;
-    const clientSecret = process.env.INTERVALS_CLIENT_SECRET;
-    const redirectUri = process.env.INTERVALS_REDIRECT_URI;
+    const { serverEnv } = require('../../../../lib/env.server');
+    const clientId = serverEnv.INTERVALS_CLIENT_ID;
+    const clientSecret = serverEnv.INTERVALS_CLIENT_SECRET;
+    const redirectUri = serverEnv.INTERVALS_REDIRECT_URI;
 
     const tokenResponse = await fetch('https://intervals.icu/api/oauth/token', {
       method: 'POST',

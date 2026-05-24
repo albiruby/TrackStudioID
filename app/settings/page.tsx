@@ -377,10 +377,11 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">Athlete Display Name</label>
+                <label htmlFor="athlete-display-name" className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">Athlete Display Name</label>
                 <div className="relative">
                   <User className="absolute left-3 top-2.5 w-4 h-4 text-zinc-600" />
                   <input
+                    id="athlete-display-name"
                     type="text"
                     required
                     value={displayName}
@@ -393,8 +394,9 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">Body Mass</label>
+                  <label htmlFor="body-mass" className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">Body Mass</label>
                   <input
+                    id="body-mass"
                     type="number"
                     step="0.1"
                     placeholder="70"
@@ -691,8 +693,9 @@ export default function SettingsPage() {
                                API key connection is intended for private use. For public deployment, use OAuth.
                              </div>
                              <div>
-                               <label className="block text-xs uppercase font-bold text-zinc-400 tracking-wider mb-1.5">Athlete ID (Optional)</label>
+                               <label htmlFor="intervals-athlete-id" className="block text-xs uppercase font-bold text-zinc-400 tracking-wider mb-1.5">Athlete ID (Optional)</label>
                                <input 
+                                 id="intervals-athlete-id"
                                  type="text" 
                                  placeholder="e.g. 0" 
                                  value={intervalsAthleteId}
@@ -701,8 +704,9 @@ export default function SettingsPage() {
                                />
                              </div>
                              <div>
-                               <label className="block text-xs uppercase font-bold text-zinc-400 tracking-wider mb-1.5">API Key</label>
+                               <label htmlFor="intervals-api-key" className="block text-xs uppercase font-bold text-zinc-400 tracking-wider mb-1.5">API Key</label>
                                <input 
+                                 id="intervals-api-key"
                                  type="password" 
                                  required
                                  value={intervalsApiKey}

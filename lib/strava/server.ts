@@ -1,8 +1,13 @@
+import * as admin from 'firebase-admin';
 import { adminDb } from '../firebase/admin';
 import { StravaConnection, StravaTokenResponse } from './types';
 
 function getStravaAuthCollection(userId: string) {
   return adminDb.collection('users').doc(userId).collection('connections').doc('strava');
+}
+
+function getStravaPrivateCollection(userId: string) {
+  return adminDb.collection('users').doc(userId).collection('privateConnections').doc('strava');
 }
 
 export async function getSafeStravaStatus(userId: string) {
@@ -16,11 +21,23 @@ export async function getSafeStravaStatus(userId: string) {
       lastSyncError: null,
     };
   }
-  const data = doc.data() as StravaConnection;
+  const data = doc.data() as Partial<StravaConnection>;
+  
+  // Proactive Security Migration: If tokens leaked into the public connection doc, move them to private!
+  if (data.accessToken || data.refreshToken) {
+    console.log(`[Security] Migrating legacy leaked Strava tokens for user ${userId}`);
+    await saveStravaConnection(userId, data);
+  }
+
+  // Need to check private collection for expiration
+  const privDoc = await getStravaPrivateCollection(userId).get();
+  const privData = privDoc.exists ? privDoc.data() : null;
+  const isExpired = privData && privData.expiresAt ? (privData.expiresAt * 1000) < Date.now() : false;
+
   return {
     connected: data.connected !== false,
     reauthRequired: !!data.reauthRequired,
-    isExpired: (data.expiresAt * 1000) < Date.now(),
+    isExpired,
     athleteName: data.athleteFirstname ? `${data.athleteFirstname} ${data.athleteLastname || ''}`.trim() : data.athleteUsername,
     lastSyncAt: data.lastSyncAt || null,
     lastSyncError: data.lastSyncError || null,
@@ -29,16 +46,47 @@ export async function getSafeStravaStatus(userId: string) {
 }
 
 export async function getStravaConnection(userId: string): Promise<StravaConnection | null> {
-  const doc = await getStravaAuthCollection(userId).get();
+  const [doc, privDoc] = await Promise.all([
+    getStravaAuthCollection(userId).get(),
+    getStravaPrivateCollection(userId).get()
+  ]);
+  
   if (!doc.exists) return null;
-  return doc.data() as StravaConnection;
+  
+  return {
+    ...doc.data(),
+    ...(privDoc.exists ? privDoc.data() : {})
+  } as StravaConnection;
 }
 
 export async function saveStravaConnection(userId: string, data: Partial<StravaConnection>) {
-  await getStravaAuthCollection(userId).set({
-    ...data,
-    updatedAt: new Date().toISOString()
-  }, { merge: true });
+  const now = new Date().toISOString();
+  
+  const publicData: any = { updatedAt: now };
+  const privateData: any = { updatedAt: now };
+  
+  const privateKeys = ['accessToken', 'refreshToken', 'expiresAt'];
+  
+  Object.keys(data).forEach(key => {
+    if (privateKeys.includes(key)) {
+      privateData[key] = (data as any)[key];
+    } else {
+      publicData[key] = (data as any)[key];
+    }
+  });
+
+  // Ensure public doc explicitly deletes leaked private keys
+  privateKeys.forEach(key => {
+    publicData[key] = admin.firestore.FieldValue.delete();
+  });
+
+  const promises = [];
+  promises.push(getStravaAuthCollection(userId).set(publicData, { merge: true }));
+  if (Object.keys(privateData).length > 1) {
+    promises.push(getStravaPrivateCollection(userId).set(privateData, { merge: true }));
+  }
+  
+  await Promise.all(promises);
 }
 
 export async function refreshStravaTokenIfNeeded(userId: string): Promise<string> {
@@ -53,8 +101,9 @@ export async function refreshStravaTokenIfNeeded(userId: string): Promise<string
   }
 
   // Need to refresh
-  const clientId = process.env.STRAVA_CLIENT_ID;
-  const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+  const { serverEnv } = require('../env.server');
+  const clientId = serverEnv.STRAVA_CLIENT_ID;
+  const clientSecret = serverEnv.STRAVA_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     throw new Error('Server configuration is missing');

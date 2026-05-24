@@ -219,7 +219,7 @@ export default function BestEffortsPage() {
   const totalBestEffortsCount = rawBestEfforts.reduce((acc, d) => acc + (d.bestEfforts?.length || 0), 0);
   const activitiesWithBestEffortsCount = rawBestEfforts.length;
   const activitiesWithStreamsCount = activities.filter(a => !!a.streamsSyncedAt || (a.streamKeysAvailable && a.streamKeysAvailable.length > 0)).length;
-  const gpsActivitiesCount = activities.filter(a => !!a.map?.summary_polyline || !!a.map?.polyline).length;
+  const gpsActivitiesCount = activities.filter(a => !!a.summaryPolyline || !!a.polyline).length;
   const courseRecordsCount = courseRecords.length;
 
   if (authLoading || loading) {

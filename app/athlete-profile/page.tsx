@@ -596,7 +596,7 @@ export default function AthleteProfilePage() {
 
                 {/* CURRENT STAGED RACES LIST */}
                 {recentRaceResults.length > 0 ? (
-                  <div className="border border-white/10 rounded overflow-hidden">
+                  <div className="border border-white/10 rounded overflow-hidden overflow-x-auto">
                     <table className="w-full text-xs text-left text-zinc-350 bg-zinc-950/20">
                       <thead className="bg-[#18181a] text-zinc-400 font-bold uppercase text-[10px] tracking-wider border-b border-white/15">
                         <tr>

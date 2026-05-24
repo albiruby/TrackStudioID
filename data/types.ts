@@ -51,6 +51,8 @@ export interface CanonicalActivity {
   trainingLoad?: number;
   startDateLocal?: string;
   hasPower?: boolean;
+  polyline?: string;
+  summaryPolyline?: string;
   
   // Strava sync fields
   externalId?: string;

@@ -32,45 +32,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Strava not connected' }, { status: 400 });
     }
 
-    // Load connection doc securely (we need tokens)
-    const connDoc = await adminDb.collection('users').doc(userId).collection('connections').doc('strava').get();
-    if (!connDoc.exists) {
-       return NextResponse.json({ error: 'Strava connection not found' }, { status: 404 });
-    }
-    let connection = connDoc.data();
-    
-    // Check token, refresh if needed
-    if (connection?.expiresAt && connection.expiresAt * 1000 < Date.now()) {
-        const refreshRes = await fetch('https://www.strava.com/oauth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                client_id: process.env.STRAVA_CLIENT_ID,
-                client_secret: process.env.STRAVA_CLIENT_SECRET,
-                grant_type: 'refresh_token',
-                refresh_token: connection.refreshToken,
-            })
-        });
-        if (!refreshRes.ok) {
-            await connDoc.ref.update({ reauthRequired: true });
-            return NextResponse.json({ error: 'Strava reauth required' }, { status: 401 });
-        }
-        const freshTokens = await refreshRes.json();
-        const updates = {
-            accessToken: freshTokens.access_token,
-            refreshToken: freshTokens.refresh_token,
-            expiresAt: freshTokens.expires_at,
-            reauthRequired: false
-        };
-        await connDoc.ref.update(updates);
-        connection = { ...connection, ...updates };
-    }
-    
-    const accessToken = connection?.accessToken;
-    if (!accessToken) {
-       return NextResponse.json({ error: 'Missing access token' }, { status: 401 });
-    }
-
     // Load canonical activity
     const activityDoc = await adminDb.collection('users').doc(userId).collection('activities').doc(activityId).get();
     if (!activityDoc.exists) {
@@ -84,18 +45,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Fetch detail from strava
-    const res = await fetch(`https://www.strava.com/api/v3/activities/${canonicalActivity.externalId}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-    });
-
-    if (!res.ok) {
+    let detailData;
+    try {
+        detailData = await stravaFetch(userId, `/activities/${canonicalActivity.externalId}`);
+    } catch (apiError: any) {
         let msg = 'Failed to fetch detailed activity';
-        if (res.status === 401 || res.status === 403) msg = 'Strava API authentication failed';
-        else if (res.status === 404) msg = 'Activity not found on Strava';
-        return NextResponse.json({ error: msg }, { status: res.status });
+        return NextResponse.json({ error: apiError.message || msg }, { status: 500 });
     }
-
-    const detailData = await res.json();
     
     // Map detailed fields
     const updates: Partial<CanonicalActivity> = {
@@ -128,11 +84,8 @@ export async function POST(req: NextRequest) {
     
     // Merge maps safely
     if (detailData.map) {
-        updates.map = {
-             ...(canonicalActivity.map || {}),
-             ...(detailData.map.polyline ? { polyline: detailData.map.polyline } : {}),
-             ...(detailData.map.summary_polyline ? { summary_polyline: detailData.map.summary_polyline } : {})
-        };
+        if (detailData.map.polyline) updates.polyline = detailData.map.polyline;
+        if (detailData.map.summary_polyline) updates.summaryPolyline = detailData.map.summary_polyline;
     }
     
     if (detailData.gear != null) updates.gearId = detailData.gear.id;

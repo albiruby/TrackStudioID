@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '../../../../lib/firebase/admin';
+import { serverEnv } from '../../../../lib/env.server';
 
 export async function GET(req: NextRequest) {
   const url = new URL(req.url);
@@ -44,8 +45,8 @@ export async function GET(req: NextRequest) {
     return new NextResponse(htmlResponse('Could not identify user from state', true), { headers: { 'Content-Type': 'text/html' } });
   }
 
-  const clientId = process.env.STRAVA_CLIENT_ID;
-  const clientSecret = process.env.STRAVA_CLIENT_SECRET;
+  const clientId = serverEnv.STRAVA_CLIENT_ID;
+  const clientSecret = serverEnv.STRAVA_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     return new NextResponse(htmlResponse('Server configuration is missing', true), { headers: { 'Content-Type': 'text/html' } });
@@ -71,8 +72,10 @@ export async function GET(req: NextRequest) {
 
     const data = await res.json();
 
-    // Store in Firestore users/{userId}/connections/strava
-    await adminDb.collection('users').doc(userId).collection('connections').doc('strava').set({
+    const { saveStravaConnection } = require('../../../../lib/strava/server');
+
+    // Store via server helper to split public and private correctly
+    await saveStravaConnection(userId, {
       provider: 'strava',
       connected: true,
       athleteId: data.athlete.id,
@@ -88,7 +91,7 @@ export async function GET(req: NextRequest) {
       lastSyncAt: null,
       lastSyncError: null,
       reauthRequired: false
-    }, { merge: true });
+    });
 
     // Also update athlete profile to show strava is connected (safe summary)
     await adminDb.collection('users').doc(userId).set({

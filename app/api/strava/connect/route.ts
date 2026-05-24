@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb, adminAuth } from '../../../../lib/firebase/admin';
+import { serverEnv } from '../../../../lib/env.server';
+import { clientEnv } from '../../../../lib/env.client';
 
 export async function GET(req: NextRequest) {
-  const clientId = process.env.STRAVA_CLIENT_ID;
-  const redirectUri = process.env.STRAVA_REDIRECT_URI || `${process.env.NEXT_PUBLIC_APP_URL}/api/strava/callback`;
+  const clientId = serverEnv.STRAVA_CLIENT_ID;
+  const redirectUri = serverEnv.STRAVA_REDIRECT_URI || `${clientEnv.NEXT_PUBLIC_APP_URL}/api/strava/callback`;
 
   if (!clientId) {
     return NextResponse.json({ error: 'STRAVA_CLIENT_ID is not configured' }, { status: 500 });

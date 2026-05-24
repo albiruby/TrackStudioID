@@ -29,7 +29,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} dark`}>
-      <body className="font-sans antialiased text-[#F5F5F5] bg-[#050505]">
+      <body className="font-sans antialiased text-[#F5F5F5] bg-[#050505] overflow-x-hidden min-h-screen">
         <AuthProvider>
           {children}
         </AuthProvider>

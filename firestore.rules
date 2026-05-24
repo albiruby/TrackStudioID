@@ -1,4 +1,11 @@
 rules_version = '2';
+// PRODUCT LAW COMPLIANCE:
+// 1. All private connection tokens (accessToken, refreshToken, apiKey, clientSecret) 
+//    are isolated in users/{userId}/privateConnections/{document=**} and are completely 
+//    BLOCKED from client access.
+// 2. Safe connection metadata is exposed in users/{userId}/connections/{document=**}
+//    with strict field rules actively blocking clients from injecting secrets.
+// 3. Fake AI or fabricated tracking telemetry is prevented.
 service cloud.firestore {
   match /databases/{database}/documents {
     // 1. Global Safety Net - Default Deny Everything
@@ -20,14 +27,29 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
 
-      // Private Connections (Nested Subcollection)
+      // Connections (Public status)
+      match /connections/{connectionId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow write: if request.auth != null && request.auth.uid == userId
+                     && !('accessToken' in request.resource.data)
+                     && !('refreshToken' in request.resource.data)
+                     && !('apiKey' in request.resource.data)
+                     && !('clientSecret' in request.resource.data);
+      }
+
+      // Private Connections (Nested Subcollection - Tokens)
       match /privateConnections/{connectionId} {
         allow read, write: if false; // Server-side admin only
       }
 
       // Activities
       match /activities/{activityId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create: if request.auth != null && request.auth.uid == userId
+                      && (!('source' in request.resource.data) || request.resource.data.source == 'manual');
+        allow update: if request.auth != null && request.auth.uid == userId
+                      && (!('source' in request.resource.data) || request.resource.data.source == resource.data.source || request.resource.data.source == 'manual');
+        allow delete: if request.auth != null && request.auth.uid == userId;
       }
 
       // Daily Wellness Logs (Nested Subcollection)

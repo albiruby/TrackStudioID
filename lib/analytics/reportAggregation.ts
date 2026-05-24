@@ -133,7 +133,7 @@ export function aggregateActivities(
 
   matchingDateActivities.forEach(act => {
     // Add distance
-    totalDistanceMeters += act.distanceMeters;
+    totalDistanceMeters += (act.distanceMeters || 0);
     totalMovingTimeSeconds += (act.movingTimeSeconds || act.elapsedTimeSeconds || 0);
 
     // Active day capture
@@ -164,8 +164,9 @@ export function aggregateActivities(
     }
 
     // Check longest runs
-    if (act.distanceMeters > longestDistanceMeters) {
-      longestDistanceMeters = act.distanceMeters;
+    const dist = act.distanceMeters || 0;
+    if (dist > longestDistanceMeters) {
+      longestDistanceMeters = dist;
       longestActivityId = act.id;
     }
   });

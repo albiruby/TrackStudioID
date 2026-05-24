@@ -112,8 +112,8 @@ export default function CompareActivitiesPage() {
   const actB = activities.find(a => a.id === actBId);
 
   // Computed Difference Cards Check & Stats
-  const hasRouteA = !!(actA?.map?.summary_polyline || actA?.map?.polyline || actA?.startLatlng);
-  const hasRouteB = !!(actB?.map?.summary_polyline || actB?.map?.polyline || actB?.startLatlng);
+  const hasRouteA = !!(actA?.summaryPolyline || actA?.polyline || actA?.startLatlng);
+  const hasRouteB = !!(actB?.summaryPolyline || actB?.polyline || actB?.startLatlng);
 
   const effA = (actA?.averageHeartRate && actA?.movingTimeSeconds && actA?.distanceMeters) ? ((actA.distanceMeters/1000) / actA.movingTimeSeconds) * actA.averageHeartRate : null;
   const effB = (actB?.averageHeartRate && actB?.movingTimeSeconds && actB?.distanceMeters) ? ((actB.distanceMeters/1000) / actB.movingTimeSeconds) * actB.averageHeartRate : null;

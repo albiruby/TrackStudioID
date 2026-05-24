@@ -1,5 +1,6 @@
 import { saveIntervalsConnection } from './server';
 import { IntervalsConnection } from './types';
+import { serverEnv } from '../env.server';
 
 export async function refreshIntervalsTokenIfNeeded(userId: string, connection: IntervalsConnection): Promise<string> {
   if (connection.authMethod !== 'oauth' || !connection.accessToken) {
@@ -17,8 +18,8 @@ export async function refreshIntervalsTokenIfNeeded(userId: string, connection: 
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: process.env.INTERVALS_CLIENT_ID || '',
-        client_secret: process.env.INTERVALS_CLIENT_SECRET || '',
+        client_id: serverEnv.INTERVALS_CLIENT_ID || '',
+        client_secret: serverEnv.INTERVALS_CLIENT_SECRET || '',
         grant_type: 'refresh_token',
         refresh_token: connection.refreshToken
       })

@@ -24,7 +24,7 @@ import {
   ChevronRight,
   Heart
 } from 'lucide-react';
-import { getActivities, getAthleteProfile } from '../../lib/firebase/firestore';
+import { getActivities, getAthleteProfile, saveReportSummary } from '../../lib/firebase/firestore';
 import { CanonicalActivity } from '../../data/types';
 import { aggregateActivities, ReportAggregationResult } from '../../lib/analytics/reportAggregation';
 import { formatDistanceKm, formatDuration } from '../../lib/data/dataLaw';
@@ -307,6 +307,19 @@ export default function ReportsPage() {
     }
   };
 
+  const handleSaveReportToCloud = async () => {
+    if (!reportData || !user) return;
+    try {
+      const reportId = `${reportType}_${periodStart}_${periodEnd}_${sportFilter}`.replace(/[^a-zA-Z0-9_\-]/g, '');
+      await saveReportSummary(user.uid, reportId, reportData);
+      setExportFeedback('Report summary cached securely to cloud database.');
+      setTimeout(() => setExportFeedback(null), 3500);
+    } catch (e) {
+      setExportFeedback('Failed to cache report to cloud.');
+      setTimeout(() => setExportFeedback(null), 3000);
+    }
+  };
+
   const handleExportCard = () => {
     setIsExportStudioOpen(true);
   };
@@ -472,6 +485,15 @@ export default function ReportsPage() {
               >
                 <Share2 className="w-3.5 h-3.5" />
                 <span>Share Report</span>
+              </button>
+
+              <button
+                onClick={handleSaveReportToCloud}
+                disabled={!reportData || reportData.totalActivities === 0}
+                className="px-3 py-1.5 border border-white/10 hover:border-white/20 text-zinc-300 hover:text-white text-xs font-bold uppercase font-mono tracking-wider rounded flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+              >
+                <Database className="w-3.5 h-3.5" />
+                <span>Save to Cloud</span>
               </button>
 
               <button

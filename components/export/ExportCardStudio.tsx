@@ -47,6 +47,16 @@ export default function ExportCardStudio({
 
   const isMetric = preferredUnits !== 'imperial';
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // Automatically reset template if it is not supported in the selected payload
   useEffect(() => {
     const valid = validateTemplate(selectedTemplateId, payload);

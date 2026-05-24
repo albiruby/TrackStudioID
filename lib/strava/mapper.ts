@@ -96,7 +96,7 @@ export function mapStravaActivityToLocalSchema(userId: string, raw: any): Canoni
     
     elevationGainMeters: raw.total_elevation_gain ?? undefined,
     
-    map: raw.map ? { summary_polyline: raw.map.summary_polyline } : undefined,
+    summaryPolyline: raw.map?.summary_polyline ?? undefined,
     startLatlng: raw.start_latlng,
     endLatlng: raw.end_latlng,
     hasGps,

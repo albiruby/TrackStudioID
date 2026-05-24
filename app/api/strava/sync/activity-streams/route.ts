@@ -31,45 +31,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Strava not connected' }, { status: 400 });
     }
 
-    // Load connection doc securely (we need tokens)
-    const connDoc = await adminDb.collection('users').doc(userId).collection('connections').doc('strava').get();
-    if (!connDoc.exists) {
-       return NextResponse.json({ error: 'Strava connection not found' }, { status: 404 });
-    }
-    let connection = connDoc.data();
-    
-    // Check token, refresh if needed
-    if (connection?.expiresAt && connection.expiresAt * 1000 < Date.now()) {
-        const refreshRes = await fetch('https://www.strava.com/oauth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                client_id: process.env.STRAVA_CLIENT_ID,
-                client_secret: process.env.STRAVA_CLIENT_SECRET,
-                grant_type: 'refresh_token',
-                refresh_token: connection.refreshToken,
-            })
-        });
-        if (!refreshRes.ok) {
-            await connDoc.ref.update({ reauthRequired: true });
-            return NextResponse.json({ error: 'Strava reauth required' }, { status: 401 });
-        }
-        const freshTokens = await refreshRes.json();
-        const updates = {
-            accessToken: freshTokens.access_token,
-            refreshToken: freshTokens.refresh_token,
-            expiresAt: freshTokens.expires_at,
-            reauthRequired: false
-        };
-        await connDoc.ref.update(updates);
-        connection = { ...connection, ...updates };
-    }
-    
-    const accessToken = connection?.accessToken;
-    if (!accessToken) {
-       return NextResponse.json({ error: 'Missing access token' }, { status: 401 });
-    }
-
     // Load canonical activity
     const activityRef = adminDb.collection('users').doc(userId).collection('activities').doc(activityId);
     const activityDoc = await activityRef.get();
@@ -85,18 +46,15 @@ export async function POST(req: NextRequest) {
 
     // Request stream keys
     const keys = 'time,distance,latlng,altitude,velocity_smooth,heartrate,cadence,watts,temp,grade_smooth';
-    const res = await fetch(`https://www.strava.com/api/v3/activities/${canonicalActivity.externalId}/streams?keys=${keys}&key_by_type=true`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-    });
-
-    if (!res.ok) {
+    
+    let streamsData;
+    try {
+        const { stravaFetch } = require('../../../../../lib/strava/server');
+        streamsData = await stravaFetch(userId, `/activities/${canonicalActivity.externalId}/streams?keys=${keys}&key_by_type=true`);
+    } catch (apiError: any) {
         let msg = 'Failed to fetch streams';
-        if (res.status === 401 || res.status === 403) msg = 'Strava API authentication failed';
-        else if (res.status === 404) msg = 'Streams not found on Strava';
-        return NextResponse.json({ error: msg }, { status: res.status });
+        return NextResponse.json({ error: apiError.message || msg }, { status: 500 });
     }
-
-    const streamsData = await res.json();
     
     // Map streams
     const streamKeysAvailable = Object.keys(streamsData);
@@ -123,11 +81,51 @@ export async function POST(req: NextRequest) {
     // Store in users/{userId}/activityStreams/{activityId}
     await adminDb.collection('users').doc(userId).collection('activityStreams').doc(activityId).set(stream);
 
+    let computedAvgHr: number | undefined;
+    let computedMaxHr: number | undefined;
+    if (streamsData.heartrate?.data && streamsData.heartrate.data.length > 0) {
+        let sum = 0;
+        let count = 0;
+        let max = 0;
+        for (const hr of streamsData.heartrate.data) {
+            if (hr > 0) {
+                sum += hr;
+                count++;
+                if (hr > max) max = hr;
+            }
+        }
+        if (count > 0) {
+            computedAvgHr = sum / count;
+            computedMaxHr = max;
+        }
+    }
+
+    let computedAvgWatts: number | undefined;
+    let computedMaxWatts: number | undefined;
+    if (streamsData.watts?.data && streamsData.watts.data.length > 0) {
+        let sum = 0;
+        let count = 0;
+        let max = 0;
+        for (const watt of streamsData.watts.data) {
+            if (watt > 0) {
+                sum += watt;
+                count++;
+                if (watt > max) max = watt;
+            }
+        }
+        if (count > 0) {
+            computedAvgWatts = sum / count;
+            computedMaxWatts = max;
+        }
+    }
+
     // Update activity doc
     const activityUpdates: Partial<CanonicalActivity> = {
         streamsSyncedAt: new Date().toISOString(),
         hasStreams: streamKeysAvailable.length > 0,
         streamKeysAvailable,
+        ...(computedAvgHr ? { averageHeartRate: computedAvgHr, maxHeartRate: computedMaxHr, hasHeartRate: true } : {}),
+        ...(computedAvgWatts ? { averageWatts: computedAvgWatts, maxWatts: computedMaxWatts, hasPower: true } : {}),
         updatedAt: new Date().toISOString()
     };
     await activityRef.set(activityUpdates, { merge: true });

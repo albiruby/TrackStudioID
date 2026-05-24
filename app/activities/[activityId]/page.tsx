@@ -408,7 +408,7 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
               <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-4 inline-flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[#FC5200]" /> GPS Route Map
               </h3>
-              {(activity.map?.polyline || activity.map?.summary_polyline) ? (
+              {(activity.polyline || activity.summaryPolyline) ? (
                 <div className="w-full h-80 bg-zinc-950 border border-zinc-800 rounded flex flex-col items-center justify-center relative overflow-hidden">
                    <div className="absolute inset-0 pattern-grid-lg text-zinc-800/30"></div>
                    <span className="text-zinc-600 text-[10px] font-mono font-bold tracking-widest uppercase relative z-10 bg-[#111113] px-3 py-1 border border-zinc-800">Map renderer required</span>
@@ -434,7 +434,7 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
                   <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.averageHeartRate)} Heart Rate Data</div></div>
                   <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.averageWatts)} Power Data</div></div>
                   <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.cadenceAvg)} Cadence Data</div></div>
-                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.map?.polyline)} GPS Polyline</div></div>
+                  <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-zinc-400">{booleanIcon(!!activity.polyline)} GPS Polyline</div></div>
                 </div>
               </div>
            </div>

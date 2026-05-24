@@ -347,7 +347,7 @@ export default function DataHealthPage() {
       }
 
       // 5. GPS flag true but polyline missing
-      if (act.hasGps && (!act.map || !act.map.summary_polyline)) {
+      if (act.hasGps && !act.summaryPolyline && !act.polyline) {
         detectedWarnings.push({
           id: `no_gps_polyline_${act.id}`,
           category: 'gps',
@@ -810,7 +810,7 @@ export default function DataHealthPage() {
                  const runs = syncedActs.filter(a => a.sportType?.toLowerCase() === 'run').length;
                  const rides = syncedActs.filter(a => a.sportType?.toLowerCase() === 'ride' || a.sportType?.toLowerCase() === 'virtualride').length;
                  const others = total - runs - rides;
-                 const withGps = syncedActs.filter(a => a.hasGps || a.map?.summary_polyline).length;
+                 const withGps = syncedActs.filter(a => a.hasGps || a.summaryPolyline).length;
                  const noGps = total - withGps;
                  const withHr = syncedActs.filter(a => a.hasHeartRate || (a.averageHeartRate && a.averageHeartRate > 0)).length;
                  const noHr = total - withHr;
@@ -863,7 +863,7 @@ export default function DataHealthPage() {
                  const hasGear = counts.gear > 0;
                  const hasBestEfforts = counts.bestEfforts > 0;
                  const hasReports = counts.reports > 0;
-                 const gpsActivitiesCount = activities.filter(a => !!a.map?.summary_polyline).length;
+                 const gpsActivitiesCount = activities.filter(a => !!a.summaryPolyline).length;
                  const hasRouteArt = gpsActivitiesCount > 0;
                  
                  // Audit for cards warnings

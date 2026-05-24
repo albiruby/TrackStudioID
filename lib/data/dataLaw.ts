@@ -49,7 +49,7 @@ export function getActivityDataHealth(act: any): ActivityHealthResult {
   
   // Real HR stream check
   const hasMissingHrStream = !!(act.averageHeartRate && (!act.hasStreams || !act.streamKeysAvailable || !act.streamKeysAvailable.includes('heartrate')));
-  const hasMissingPolyline = !!((act.distanceMeters && act.distanceMeters > 0) && (!act.map || (!act.map.polyline && !act.map.summary_polyline)));
+  const hasMissingPolyline = !!((act.distanceMeters && act.distanceMeters > 0) && (!act.polyline && !act.summaryPolyline));
 
   let overallHealth: 'GREEN' | 'YELLOW' | 'RED' = 'GREEN';
   let color = 'border-green-900/40 bg-green-950/10 text-green-400';

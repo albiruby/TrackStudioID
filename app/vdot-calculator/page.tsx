@@ -301,13 +301,13 @@ export default function VdotCalculatorPage() {
       estimatedVdot: calculatedVdot,
       equivalentRaceTimes: equivalentTimes,
       trainingPaces: paces,
-      createdAt: new Date().toISOString()
+      createdAt: serverTimestamp()
     };
 
     try {
       await setDoc(resultDocRef, calcObj);
       setSaveResultSuccess(true);
-      setHistory(prev => [calcObj, ...prev]);
+      setHistory(prev => [{...calcObj, createdAt: { seconds: Math.floor(Date.now() / 1000) }}, ...prev]);
       setTimeout(() => setSaveResultSuccess(false), 3000);
     } catch (err) {
       console.error('Error saving calculator result:', err);
@@ -719,7 +719,7 @@ export default function VdotCalculatorPage() {
                     <div key={i} className="bg-zinc-950/40 border border-white/5 hover:border-white/10 p-2.5 rounded text-xs transition">
                       <div className="flex justify-between items-center">
                         <span className="text-zinc-400 font-bold font-sans">VDOT {h.estimatedVdot}</span>
-                        <span className="text-[10px] text-zinc-550 italic font-sans">{new Date(h.createdAt || 0).toLocaleDateString()}</span>
+                        <span className="text-[10px] text-zinc-550 italic font-sans">{new Date(h.createdAt?.seconds ? h.createdAt.seconds * 1000 : (h.createdAt || 0)).toLocaleDateString()}</span>
                       </div>
                       <div className="mt-1 flex items-center gap-2 justify-between">
                         <span className="text-[10px] text-zinc-300 font-sans">

@@ -100,7 +100,7 @@ export default function RouteArtPage() {
         setActivities(data);
         
         // Auto-select first GPS-enabled activity
-        const gpsFiltered = data.filter(a => !!(a.hasGps || a.map?.polyline || a.map?.summary_polyline));
+        const gpsFiltered = data.filter(a => !!(a.hasGps || a.polyline || a.summaryPolyline));
         if (gpsFiltered.length > 0) {
           setSelectedId(gpsFiltered[0].id);
         }
@@ -142,7 +142,7 @@ export default function RouteArtPage() {
 
   // Filter activities to include ONLY real GPS and outdoor route tracks
   const gpsActivities = useMemo(() => {
-    return activities.filter(a => !!(a.hasGps || a.map?.polyline || a.map?.summary_polyline));
+    return activities.filter(a => !!(a.hasGps || a.polyline || a.summaryPolyline));
   }, [activities]);
 
   // Active activity detail record
@@ -166,9 +166,9 @@ export default function RouteArtPage() {
     }
 
     // Detailed Polyline
-    if (selectedActivity.map?.polyline) {
+    if (selectedActivity.polyline) {
       try {
-        const coords = decodePolyline(selectedActivity.map.polyline);
+        const coords = decodePolyline(selectedActivity.polyline);
         if (coords && coords.length > 0) {
           return { coordinates: coords, sourceQuality: 'SUMMARY_ROUTE', parseErrorMsg: null };
         }
@@ -178,9 +178,9 @@ export default function RouteArtPage() {
     }
 
     // Summary Polyline
-    if (selectedActivity.map?.summary_polyline) {
+    if (selectedActivity.summaryPolyline) {
       try {
-        const coords = decodePolyline(selectedActivity.map.summary_polyline);
+        const coords = decodePolyline(selectedActivity.summaryPolyline);
         if (coords && coords.length > 0) {
           return { coordinates: coords, sourceQuality: 'SUMMARY_ROUTE', parseErrorMsg: null };
         }
@@ -362,7 +362,7 @@ export default function RouteArtPage() {
 
   // Data Health calculations (#8)
   const healthDashboardMetrics = useMemo(() => {
-    const totalGps = activities.filter(a => !!(a.hasGps || a.map?.polyline || a.map?.summary_polyline)).length;
+    const totalGps = activities.filter(a => !!(a.hasGps || a.polyline || a.summaryPolyline)).length;
     
     let renderableCount = 0;
     let parsingErrors = 0;
@@ -370,7 +370,7 @@ export default function RouteArtPage() {
     let summaryRouteCount = 0;
 
     activities.forEach(a => {
-      const hasRouteSource = !!(a.hasGps || a.map?.polyline || a.map?.summary_polyline);
+      const hasRouteSource = !!(a.hasGps || a.polyline || a.summaryPolyline);
       if (!hasRouteSource) return;
 
       const syncedStreamKeys = a.streamKeysAvailable || [];
@@ -383,7 +383,7 @@ export default function RouteArtPage() {
       }
 
       // Test parsing validity
-      const poly = a.map?.polyline || a.map?.summary_polyline;
+      const poly = a.polyline || a.summaryPolyline;
       if (poly) {
         try {
           const testCoords = decodePolyline(poly);

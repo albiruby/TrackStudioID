@@ -69,6 +69,8 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
   const [gearList, setGearList] = useState<CanonicalGear[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [stravaStatus, setStravaStatus] = useState<any>(null);
+  const [intervalsStatus, setIntervalsStatus] = useState<any>(null);
 
   // New activity form state
   const [newName, setNewName] = useState('');
@@ -88,16 +90,22 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
     if (!user) return;
     try {
       setLoadingData(true);
-      const [acts, logs, loads, gears] = await Promise.all([
+      const token = await user.getIdToken();
+      const [acts, logs, loads, gears, stravaRes, intervalsRes] = await Promise.all([
         getActivities(user.uid),
         getWellnessLogs(user.uid),
         getDailyLoads(user.uid),
-        getGearList(user.uid)
+        getGearList(user.uid),
+        fetch('/api/strava/status', { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null),
+        fetch('/api/intervals/status', { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null)
       ]);
       setActivities(acts.sort((a, b) => (b.startDateLocal || b.startDate || '').localeCompare(a.startDateLocal || a.startDate || '')));
       setWellnessLogs(logs.sort((a, b) => b.date.localeCompare(a.date)));
       setDailyLoads(loads.sort((a, b) => b.date.localeCompare(a.date)));
       setGearList(gears || []);
+
+      if (stravaRes && stravaRes.ok) setStravaStatus(await stravaRes.json().catch(() => null));
+      if (intervalsRes && intervalsRes.ok) setIntervalsStatus(await intervalsRes.json().catch(() => null));
     } catch (e) {
       console.error('Error loading dashboard data:', e);
     } finally {
@@ -206,13 +214,21 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
           <div className="w-7 h-7 rounded bg-[#FC5200] flex items-center justify-center text-black font-bold text-sm">T</div>
           <span className="font-heading text-lg font-bold text-white tracking-wide">TRACK.STUDIO</span>
         </div>
-        <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-2 text-zinc-400 hover:text-white">
-          {sidebarOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+        <button 
+          onClick={() => setSidebarOpen(!sidebarOpen)} 
+          className="p-2 text-zinc-400 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#FC5200] rounded"
+          aria-expanded={sidebarOpen}
+          aria-label={sidebarOpen ? "Close navigation menu" : "Open navigation menu"}
+          aria-controls="mobile-sidebar"
+        >
+          {sidebarOpen ? <X className="w-6 h-6" aria-hidden="true" /> : <Menu className="w-6 h-6" aria-hidden="true" />}
         </button>
       </div>
 
       {/* SIDEBAR */}
-      <aside className={`\
+      <aside 
+        id="mobile-sidebar"
+        className={`\
         fixed inset-y-0 left-0 z-40 w-64 bg-[#111113] border-r border-white/10 flex flex-col transition-transform duration-300 md:relative md:translate-x-0 \
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"} \
       `}>
@@ -313,6 +329,37 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
       {/* MAIN CONTENT AREA */}
       <main className="flex-1 md:w-[calc(100%-16rem)] overflow-y-auto">
         <div className="max-w-[1400px] mx-auto p-4 md:p-8 lg:p-12 space-y-8">
+
+          {/* STALE DATA WARNING BANNER */}
+          {(() => {
+            const ONE_DAY = 24 * 60 * 60 * 1000;
+            const now = Date.now();
+            let staleMessages = [];
+            
+            if (stravaStatus?.connected && stravaStatus?.lastSyncAt) {
+              const diff = now - new Date(stravaStatus.lastSyncAt).getTime();
+              if (diff > ONE_DAY) staleMessages.push("Strava");
+            }
+            if (intervalsStatus?.connected && intervalsStatus?.lastSyncAt) {
+               const diff = now - new Date(intervalsStatus.lastSyncAt).getTime();
+               if (diff > ONE_DAY) staleMessages.push("Intervals.icu");
+            }
+            if (staleMessages.length === 0) return null;
+            return (
+              <div className="bg-amber-950/40 border border-amber-900/60 rounded-lg p-3 flex items-center justify-between animate-fade-in">
+                <div className="flex items-center gap-2 text-amber-500">
+                   <ShieldAlert className="w-4 h-4" />
+                   <span className="text-xs uppercase font-bold tracking-wider">Warning: Data is stale ({staleMessages.join(" and ")} last synced over 24h ago).</span>
+                </div>
+                <button
+                  onClick={() => router.push('/settings')}
+                  className="bg-amber-950/60 hover:bg-amber-900/60 border border-amber-900/80 text-amber-500 hover:text-amber-400 px-3 py-1.5 rounded text-[10px] uppercase font-bold tracking-wider transition-colors"
+                >
+                  Refresh Required
+                </button>
+              </div>
+            );
+          })()}
 
           {/* THREE MAIN SECTION HUD TELEMETRIES (DASHBOARD HUD SUMMARY) */}
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-6">
@@ -427,24 +474,51 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
 
                const isIntervalsDataPresent = hasLoadVal || hasFatigueVal || hasFormVal || hasHRV || hasWellness;
 
-               if (!isIntervalsDataPresent) {
-                 return (
-                   <div className="col-span-2 lg:col-span-6 bg-[#111113] border border-white/10 p-6 rounded-xl text-center space-y-4">
-                     <HeartPulse className="w-8 h-8 text-zinc-500 mx-auto" />
-                     <p className="text-zinc-400 font-medium text-sm">Connect Intervals.icu to import training load and wellness data.</p>
-                     <button
-                       onClick={() => router.push('/settings')}
-                       className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold uppercase rounded transition-colors"
-                     >
-                       Go to Settings
-                     </button>
-                   </div>
-                 );
-               }
-
+               const dashboardTotals = require('../lib/analytics/dashboardAggregation').calculateDashboardTotals(activities, 30);
+               
                return (
                  <>
-                   {/* FITNESS CTL */}
+                   {/* 30-DAY DISTANCE */}
+                   <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all col-span-2 lg:col-span-2">
+                     <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">30-DAY DISTANCE</span>
+                     <div className="font-mono text-2xl font-bold tracking-tight text-[#FC5200] mt-1.5">
+                       {formatDistanceKm(dashboardTotals.totalDistanceMeters)}
+                     </div>
+                     <span className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Total mileage summary</span>
+                   </div>
+
+                   {/* 30-DAY DURATION */}
+                   <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all col-span-2 lg:col-span-2">
+                     <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">30-DAY DURATION</span>
+                     <div className="font-mono text-2xl font-bold tracking-tight text-white mt-1.5">
+                       {formatDuration(dashboardTotals.totalMovingTimeSeconds)}
+                     </div>
+                     <span className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Active moving time</span>
+                   </div>
+
+                   {/* 30-DAY ACTIVITIES */}
+                   <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all col-span-2 lg:col-span-2">
+                     <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">30-DAY ACTIVITIES</span>
+                     <div className="font-mono text-2xl font-bold tracking-tight text-white mt-1.5">
+                       {dashboardTotals.totalActivities}
+                     </div>
+                     <span className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Total logged works</span>
+                   </div>
+
+                   {!isIntervalsDataPresent ? (
+                     <div className="col-span-2 lg:col-span-6 bg-[#111113] border border-white/10 p-6 rounded-xl text-center space-y-4">
+                       <HeartPulse className="w-8 h-8 text-zinc-500 mx-auto" />
+                       <p className="text-zinc-400 font-medium text-sm">Connect Intervals.icu to import training load and wellness data.</p>
+                       <button
+                         onClick={() => router.push('/settings')}
+                         className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold uppercase rounded transition-colors"
+                       >
+                         Go to Settings
+                       </button>
+                     </div>
+                   ) : (
+                     <>
+                       {/* FITNESS CTL */}
                    <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex flex-col justify-between hover:border-white/20 hover:shadow-lg transition-all">
                      <span className="text-[10px] text-zinc-400 font-semibold tracking-wider uppercase block">FITNESS CTL</span>
                      {hasLoadVal ? (
@@ -520,6 +594,8 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
                        <div className="text-zinc-500 text-[10px] uppercase font-mono font-semibold mt-1.5 leading-tight font-bold">No HRV data synced</div>
                      )}
                    </div>
+                   </>
+                   )}
                  </>
                );
 

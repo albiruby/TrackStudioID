@@ -7,8 +7,41 @@ import {
   updateDoc, 
   query, 
   where,
-  deleteDoc
+  deleteDoc,
+  orderBy,
+  limit,
+  startAfter,
+  DocumentSnapshot
 } from 'firebase/firestore';
+
+// ... (skipping unchanged code for brevity, will provide in context)
+
+export async function getActivities(uid: string, limitCount?: number): Promise<CanonicalActivity[]> {
+  const path = `users/${uid}/activities`;
+  checkDatabaseState(OperationType.LIST, path);
+  try {
+    let q = query(
+        collection(db, 'users', uid, 'activities'), 
+        orderBy('startDateLocal', 'desc')
+    );
+    
+    if (limitCount && limitCount > 0) {
+        q = query(q, limit(limitCount));
+    }
+    
+    const snap = await getDocs(q);
+    const list: CanonicalActivity[] = [];
+    snap.forEach(d => {
+      list.push({ ...d.data(), id: d.id } as CanonicalActivity);
+    });
+    
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+
 import { db, auth } from './client';
 import { AthleteProfile, CanonicalActivity, DailyWellnessLog, DailyTrainingLoad, CanonicalActivityStream, CanonicalGear, CourseRecord, CourseAttempt } from '../../data/types';
 
@@ -98,22 +131,6 @@ export async function getDailyLoads(uid: string): Promise<DailyTrainingLoad[]> {
     const list: DailyTrainingLoad[] = [];
     snap.forEach(d => {
       list.push({ ...d.data(), id: d.id } as DailyTrainingLoad);
-    });
-    return list;
-  } catch (error) {
-    handleFirestoreError(error, OperationType.LIST, path);
-  }
-}
-
-export async function getActivities(uid: string): Promise<CanonicalActivity[]> {
-  const path = `users/${uid}/activities`;
-  checkDatabaseState(OperationType.LIST, path);
-  try {
-    const q = query(collection(db, 'users', uid, 'activities'));
-    const snap = await getDocs(q);
-    const list: CanonicalActivity[] = [];
-    snap.forEach(d => {
-      list.push({ ...d.data(), id: d.id } as CanonicalActivity);
     });
     return list;
   } catch (error) {
@@ -468,6 +485,17 @@ export async function deleteCourseRecord(uid: string, courseId: string): Promise
     await deleteDoc(docRef);
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function saveReportSummary(uid: string, reportId: string, payload: any): Promise<void> {
+  const path = `users/${uid}/reports/${reportId}`;
+  checkDatabaseState(OperationType.WRITE, path);
+  try {
+    const docRef = doc(db, 'users', uid, 'reports', reportId);
+    await setDoc(docRef, { ...payload, id: reportId, userId: uid, syncedAt: new Date().toISOString() }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
   }
 }
 

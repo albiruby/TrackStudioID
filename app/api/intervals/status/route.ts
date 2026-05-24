@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSafeIntervalsStatus } from '../../../../lib/intervals/status';
 import { adminAuth } from '../../../../lib/firebase/admin';
+import { serverEnv } from '../../../../lib/env.server';
 
 export async function GET(req: NextRequest) {
   try {
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
     }
 
     const status = await getSafeIntervalsStatus(userId);
-    const hasOAuth = !!(process.env.INTERVALS_CLIENT_ID && process.env.INTERVALS_CLIENT_SECRET && process.env.INTERVALS_REDIRECT_URI);
+    const hasOAuth = !!(serverEnv.INTERVALS_CLIENT_ID && serverEnv.INTERVALS_CLIENT_SECRET && serverEnv.INTERVALS_REDIRECT_URI);
 
     return NextResponse.json({ ...status, hasOAuth });
   } catch (error: any) {

@@ -109,7 +109,7 @@ export default function CourseRecordsPage() {
   };
 
   // Filter ONLY Activities with valid GPS map/route data
-  const gpsActivities = activities.filter(a => !!a.map?.summary_polyline || !!a.map?.polyline);
+  const gpsActivities = activities.filter(a => !!a.summaryPolyline || !!a.polyline);
 
   // Create standard Course Record operation
   const handleCreateCourse = async (e: React.FormEvent) => {
@@ -133,7 +133,7 @@ export default function CourseRecordsPage() {
 
     setErrorSubmitting('');
     try {
-      const parentPolyline = sourceAct.map?.summary_polyline || sourceAct.map?.polyline || '';
+      const parentPolyline = sourceAct.summaryPolyline || sourceAct.polyline || '';
       const baseDistance = sourceAct.distanceMeters || 0;
       const baseElev = sourceAct.elevationGainMeters || 0;
       const baseTime = sourceAct.movingTimeSeconds || sourceAct.elapsedTimeSeconds || 0;
@@ -519,7 +519,7 @@ export default function CourseRecordsPage() {
                       {/* Attempts Listing Table */}
                       <div className="space-y-2">
                         <span className="text-[10px] text-zinc-500 uppercase font-mono font-bold block">Historical Attempt Records (Sorted by date)</span>
-                        <div className="border border-white/5 rounded-lg overflow-hidden bg-[#111113]">
+                        <div className="border border-white/5 rounded-lg overflow-hidden overflow-x-auto bg-[#111113]">
                           <table className="w-full text-left border-collapse text-xs">
                             <thead>
                               <tr className="border-b border-white/5 bg-white/[0.01] uppercase font-mono text-zinc-500 text-[10px]">

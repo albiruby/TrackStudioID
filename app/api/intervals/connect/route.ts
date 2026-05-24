@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { serverEnv } from '../../../../lib/env.server';
 
 export async function GET(req: NextRequest) {
-  const clientId = process.env.INTERVALS_CLIENT_ID;
-  const redirectUri = process.env.INTERVALS_REDIRECT_URI;
+  const clientId = serverEnv.INTERVALS_CLIENT_ID;
+  const redirectUri = serverEnv.INTERVALS_REDIRECT_URI;
 
   if (!clientId || !redirectUri) {
     return NextResponse.json({ error: 'Intervals.icu OAuth is not configured' }, { status: 500 });

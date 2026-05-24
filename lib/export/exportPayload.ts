@@ -125,7 +125,7 @@ export function mapActivityToPayload(
   // Retrieve route coordinates if any are embedded
   let routeSvgPath = '';
   let routeViewBox = '0 0 1080 1080';
-  const poly = activity.map?.polyline || activity.map?.summary_polyline;
+  const poly = activity.polyline || activity.summaryPolyline;
   if (poly) {
     const coords = decodePolyline(poly);
     if (coords.length > 0) {
