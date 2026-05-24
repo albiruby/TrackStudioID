@@ -23,18 +23,27 @@
         "email": { "type": "string" },
         "displayName": { "type": "string" },
         "photoURL": { "type": "string" },
+        "birthDate": { "type": "string" },
+        "sex": { "type": "string" },
         "weightKg": { "type": "number" },
         "heightCm": { "type": "number" },
         "restingHR": { "type": "number" },
         "maxHR": { "type": "number" },
         "thresholdHR": { "type": "number" },
+        "restingHeartRate": { "type": "number" },
+        "maxHeartRate": { "type": "number" },
+        "lactateThresholdHeartRate": { "type": "number" },
+        "thresholdPaceSecPerKm": { "type": "number" },
+        "thresholdPowerWatts": { "type": "number" },
+        "recentRaceResults": { "type": "array" },
+        "preferredUnits": { "type": "string" },
         "vdotScore": { "type": "number" },
         "stravaConnected": { "type": "boolean" },
         "stravaAthleteId": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["uid", "email"]
+      "required": ["uid"]
     },
     "Activity": {
       "title": "Activity",
@@ -73,6 +82,10 @@
     "/athletes/{athleteId}/activities/{activityId}": {
       "schema": "Activity",
       "description": "Activities subcollection for structured physiological loads"
+    },
+    "/users/{userId}/profile/athlete": {
+      "schema": "AthleteProfile",
+      "description": "Athlete profile subcollection containing primary physiological and baseline values"
     }
   }
 }

@@ -4,18 +4,33 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
 import { db } from '../../lib/firebase/client';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { 
   ArrowLeft, 
   Heart, 
   Check, 
   Sliders, 
+  Settings, 
+  HelpCircle, 
+  AlertCircle, 
   Save, 
   Info, 
-  AlertCircle 
+  Sparkles 
 } from 'lucide-react';
 
-export default function HrCalculatorPage() {
+interface HeartRateZones {
+  method: 'karvonen' | 'max_pct' | 'lthr';
+  z1: [number, number];
+  z2: [number, number];
+  z3: [number, number];
+  z4: [number, number];
+  z5: [number, number];
+  restingHeartRate: number | null;
+  maxHeartRate: number | null;
+  lactateThresholdHeartRate: number | null;
+}
+
+export default function HeartRateCalculatorPage() {
   const router = useRouter();
   const { user, athleteProfile, updateAthleteProfile, loading: authLoading } = useAuth();
 
@@ -25,7 +40,7 @@ export default function HrCalculatorPage() {
   const [lthr, setLthr] = useState<string>('');
   const [method, setMethod] = useState<'karvonen' | 'max_pct' | 'lthr'>('karvonen');
 
-  // Age based max HR estimation choice
+  // Age based max HR estimation toggler
   const [useAgeEstimation, setUseAgeEstimation] = useState(false);
   const [athleteAge, setAthleteAge] = useState<string>('30');
 
@@ -42,6 +57,7 @@ export default function HrCalculatorPage() {
       setLthr(athleteProfile.lactateThresholdHeartRate ? athleteProfile.lactateThresholdHeartRate.toString() : (athleteProfile.thresholdHR ? athleteProfile.thresholdHR.toString() : ''));
       
       if (athleteProfile.birthDate) {
+        // Compute approximate age
         const birthYear = new Date(athleteProfile.birthDate).getFullYear();
         const currentYear = new Date().getFullYear();
         setAthleteAge((currentYear - birthYear).toString());
@@ -49,10 +65,12 @@ export default function HrCalculatorPage() {
     }
   }, [athleteProfile]);
 
-  // Adjust Max HR based on age choice
+  // Adjust Max HR based on age-based estimation choice
   useEffect(() => {
     if (useAgeEstimation) {
       const ageVal = parseInt(athleteAge) || 30;
+      // Haskell/Faskell formula: Max HR = 211 - 0.64 * age or standard 220 - age
+      // We will use standard (220 - age) as standard clinical baseline, clearly labeled as Estimated.
       const estimatedMax = 220 - ageVal;
       setMaxHr(estimatedMax.toString());
     }
@@ -62,8 +80,8 @@ export default function HrCalculatorPage() {
   const maxVal = maxHr ? parseInt(maxHr) : null;
   const lthrVal = lthr ? parseInt(lthr) : null;
 
-  // Real heart rate mapping formulas
-  const calculateZones = () => {
+  // Real Heart Rate Zones modeling based on formulas
+  const calculateZones = (): { name: string; min: number; max: number; purpose: string }[] | null => {
     if (method === 'max_pct') {
       if (!maxVal || maxVal <= 0) return null;
       return [
@@ -85,6 +103,12 @@ export default function HrCalculatorPage() {
       ];
     } else if (method === 'lthr') {
       if (!lthrVal || lthrVal <= 0) return null;
+      // Joe Friel's model:
+      // Z1: < 85% of LTHR
+      // Z2: 85% to 89% of LTHR
+      // Z3: 90% to 94% of LTHR
+      // Z4: 95% to 99% of LTHR
+      // Z5: >= 100% of LTHR (Cap at Max HR if specified, else +15% default)
       const maxCap = maxVal || Math.round(lthrVal * 1.15);
       return [
         { name: 'Zone 1 (Active Recovery)', min: 1, max: Math.round(lthrVal * 0.84), purpose: 'Promotes blood circulation & rapid metabolic wastes clearing' },
@@ -99,6 +123,7 @@ export default function HrCalculatorPage() {
 
   const zonesList = calculateZones();
 
+  // Save Heart Rate Zones Settings To Firestore Subcollection
   const handleSaveZones = async () => {
     if (!user || !zonesList || !db) return;
     setSaving(true);
@@ -123,6 +148,7 @@ export default function HrCalculatorPage() {
 
       await setDoc(parentDocRef, dataPayload);
 
+      // Re-save/commit to also update primary user values for system compatibility
       await updateAthleteProfile({
         restingHeartRate: restingVal,
         maxHeartRate: maxVal,
@@ -149,6 +175,7 @@ export default function HrCalculatorPage() {
     }
   };
 
+  // Model validation/readiness status indicator strings
   const isHrrCompatible = restingVal !== null && maxVal !== null && maxVal > restingVal;
   const isMaxPctCompatible = maxVal !== null && maxVal > 0;
   const isLthrCompatible = lthrVal !== null && lthrVal > 0;
@@ -188,6 +215,7 @@ export default function HrCalculatorPage() {
 
               <div className="space-y-4">
                 
+                {/* RESTING HEART RATE */}
                 <div className="space-y-1">
                   <span className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">
                     Resting Heart Rate (bpm)
@@ -203,12 +231,13 @@ export default function HrCalculatorPage() {
                     className="w-full bg-zinc-900 border border-white/10 focus:border-[#FC5200] outline-none text-xs p-2.5 text-zinc-250 rounded font-mono"
                   />
                   {!restingVal && (
-                    <span className="text-[10px] text-red-500 font-bold uppercase block mt-1 tracking-wider leading-none font-sans">
+                    <span className="text-[10px] text-red-500 font-bold uppercase block mt-1 tracking-wider leading-none">
                       ⚠️ REQUIRED FOR KARVONEN
                     </span>
                   )}
                 </div>
 
+                {/* MAX HEART RATE */}
                 <div className="space-y-1">
                   <div className="flex justify-between items-center mb-1">
                     <span className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">
@@ -270,6 +299,7 @@ export default function HrCalculatorPage() {
                   )}
                 </div>
 
+                {/* LACTATE THRESHOLD HEART RATE */}
                 <div className="space-y-1">
                   <span className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">
                     Lactate Threshold HR (optional / bpm)
@@ -291,6 +321,7 @@ export default function HrCalculatorPage() {
                   )}
                 </div>
 
+                {/* FORMULA METHOD SELECT */}
                 <div className="space-y-2 border-t border-white/10 pt-4">
                   <span className="text-xs text-zinc-400 uppercase font-bold tracking-wider block">
                     Methodology Formula
@@ -355,6 +386,7 @@ export default function HrCalculatorPage() {
             </div>
           </div>
 
+          {/* RENDERED HEART RATE ZONES */}
           <div className="lg:col-span-2 space-y-6">
             <div className="bg-[#111113] border border-white/10 rounded-lg p-6 space-y-5">
               
@@ -425,7 +457,7 @@ export default function HrCalculatorPage() {
         </div>
 
         {/* MATH INTEGRITY FOOTER */}
-        <div className="bg-[#111113]/45 border border-white/10 p-5 rounded-lg flex items-start gap-4 flex-row">
+        <div className="bg-[#111113]/45 border border-white/10 p-5 rounded-lg flex items-start gap-4">
           <Sliders className="w-5 h-5 text-[#FC5200]/50 shrink-0 mt-0.5" />
           <p className="text-[11px] text-zinc-500 leading-relaxed font-sans">
             ⚠️ HEART INTENSITY INTEGRITY: Heart calculations map strictly to linear physiological indices. They preserve the raw output of clinical math models. Tracking profiles do not include simulated statistics or stochastic projections. Pure athletic science.

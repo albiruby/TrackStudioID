@@ -331,4 +331,43 @@ export async function deleteCustomWorkout(uid: string, id: string): Promise<void
   }
 }
 
+export async function getWorkoutComparisons(uid: string): Promise<any[]> {
+  const path = `users/${uid}/workoutComparisons`;
+  checkDatabaseState(OperationType.LIST, path);
+  try {
+    const q = query(collection(db, 'users', uid, 'workoutComparisons'));
+    const snap = await getDocs(q);
+    const list: any[] = [];
+    snap.forEach(d => {
+      list.push({ ...d.data(), id: d.id });
+    });
+    return list;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.LIST, path);
+  }
+}
+
+export async function saveWorkoutComparison(uid: string, id: string, payload: any): Promise<void> {
+  const path = `users/${uid}/workoutComparisons/${id}`;
+  checkDatabaseState(OperationType.WRITE, path);
+  try {
+    const docRef = doc(db, 'users', uid, 'workoutComparisons', id);
+    await setDoc(docRef, { ...payload, id, userId: uid, updatedAt: new Date().toISOString() }, { merge: true });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteWorkoutComparison(uid: string, id: string): Promise<void> {
+  const path = `users/${uid}/workoutComparisons/${id}`;
+  checkDatabaseState(OperationType.DELETE, path);
+  try {
+    const docRef = doc(db, 'users', uid, 'workoutComparisons', id);
+    await deleteDoc(docRef);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+
 

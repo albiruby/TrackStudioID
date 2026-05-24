@@ -95,25 +95,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
           }
 
+          // Get the detailed athlete profile from subcollection users/{uid}/profile/athlete
+          const athleteProfileRef = doc(db, 'users', firebaseUser.uid, 'profile', 'athlete');
+          let athleteProfileSnap: any = null;
+          try {
+            athleteProfileSnap = await getDoc(athleteProfileRef);
+          } catch (err) {
+            console.error('Error fetching subcollection athlete profile:', err);
+          }
+
+          const hasSubprofile = athleteProfileSnap && athleteProfileSnap.exists();
+          const subprofileData = (hasSubprofile && athleteProfileSnap) ? athleteProfileSnap.data() : null;
+
           if (userSnap && userSnap.exists()) {
             const data = userSnap.data();
             const emailPrefix = firebaseUser.email ? firebaseUser.email.split('@')[0] : 'User';
-            const finalDisplayName = data.displayName || firebaseUser.displayName || emailPrefix;
+            const finalDisplayName = subprofileData?.displayName || data.displayName || firebaseUser.displayName || emailPrefix;
 
             setAthleteProfile({
               uid: firebaseUser.uid,
               email: firebaseUser.email,
               displayName: finalDisplayName,
               photoURL: firebaseUser.photoURL,
-              createdAt: data.createdAt,
-              updatedAt: data.updatedAt,
-              // Fallback fields in memory for UI presentation compatibility (NO database writes of these metrics)
-              weightKg: data.weightKg || 70.0,
-              heightCm: data.heightCm || 175.0,
-              restingHR: data.restingHR || 42,
-              maxHR: data.maxHR || 190,
-              thresholdHR: data.thresholdHR || 165,
-              vdotScore: data.vdotScore || 45.0,
+              createdAt: subprofileData?.createdAt || data.createdAt || null,
+              updatedAt: subprofileData?.updatedAt || data.updatedAt || null,
+              
+              // New genuine profile values
+              birthDate: subprofileData?.birthDate || null,
+              sex: subprofileData?.sex || null,
+              heightCm: subprofileData?.heightCm || null,
+              weightKg: subprofileData?.weightKg || null,
+              restingHeartRate: subprofileData?.restingHeartRate || null,
+              maxHeartRate: subprofileData?.maxHeartRate || null,
+              lactateThresholdHeartRate: subprofileData?.lactateThresholdHeartRate || null,
+              thresholdPaceSecPerKm: subprofileData?.thresholdPaceSecPerKm || null,
+              thresholdPowerWatts: subprofileData?.thresholdPowerWatts || null,
+              recentRaceResults: subprofileData?.recentRaceResults || [],
+              preferredUnits: subprofileData?.preferredUnits || 'metric',
+
+              // Backward compatibility fields without fake presets if not declared in DB
+              restingHR: subprofileData?.restingHeartRate || data.restingHR || null,
+              maxHR: subprofileData?.maxHeartRate || data.maxHR || null,
+              thresholdHR: subprofileData?.lactateThresholdHeartRate || data.thresholdHR || null,
+              units: subprofileData?.preferredUnits || data.units || 'metric',
+              vdotScore: data.vdotScore || null,
               stravaConnected: data.stravaConnected || false,
             });
           } else {
@@ -140,12 +165,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: firebaseUser.email,
               displayName: finalDisplayName,
               photoURL: firebaseUser.photoURL,
-              weightKg: 70.0,
-              heightCm: 175.0,
-              restingHR: 42,
-              maxHR: 190,
-              thresholdHR: 165,
-              vdotScore: 45.0,
+              birthDate: null,
+              sex: null,
+              heightCm: null,
+              weightKg: null,
+              restingHeartRate: null,
+              maxHeartRate: null,
+              lactateThresholdHeartRate: null,
+              thresholdPaceSecPerKm: null,
+              thresholdPowerWatts: null,
+              recentRaceResults: [],
+              preferredUnits: 'metric',
+              restingHR: null,
+              maxHR: null,
+              thresholdHR: null,
+              units: 'metric',
+              vdotScore: null,
               stravaConnected: false,
             });
           }
@@ -195,28 +230,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const updateAthleteProfile = async (updates: Partial<AthleteProfile>) => {
     if (!user || !db) return;
-    const userRef = doc(db, 'users', user.uid);
     
-    // We only merge standard user keys or settings updates into Firestore user profile
-    const cleanedUpdates: Record<string, any> = {
+    const userRef = doc(db, 'users', user.uid);
+    const athleteRef = doc(db, 'users', user.uid, 'profile', 'athlete');
+
+    // Filter root document updates
+    const rootUpdates: Record<string, any> = {
       updatedAt: serverTimestamp(),
     };
-    if (updates.displayName !== undefined) cleanedUpdates.displayName = updates.displayName;
-    if (updates.weightKg !== undefined) cleanedUpdates.weightKg = updates.weightKg;
-    if (updates.heightCm !== undefined) cleanedUpdates.heightCm = updates.heightCm;
-    if (updates.restingHR !== undefined) cleanedUpdates.restingHR = updates.restingHR;
-    if (updates.maxHR !== undefined) cleanedUpdates.maxHR = updates.maxHR;
-    if (updates.thresholdHR !== undefined) cleanedUpdates.thresholdHR = updates.thresholdHR;
-    if (updates.vdotScore !== undefined) cleanedUpdates.vdotScore = updates.vdotScore;
-    if (updates.stravaConnected !== undefined) cleanedUpdates.stravaConnected = updates.stravaConnected;
+    if (updates.displayName !== undefined) rootUpdates.displayName = updates.displayName;
+    if (updates.stravaConnected !== undefined) rootUpdates.stravaConnected = updates.stravaConnected;
+    if (updates.vdotScore !== undefined) rootUpdates.vdotScore = updates.vdotScore;
+
+    // Filter subcollection athlete document updates with precise field typing
+    const athUpdates: Record<string, any> = {
+      updatedAt: serverTimestamp(),
+    };
+    if (updates.displayName !== undefined) athUpdates.displayName = updates.displayName;
+    if (updates.birthDate !== undefined) athUpdates.birthDate = updates.birthDate;
+    if (updates.sex !== undefined) athUpdates.sex = updates.sex;
+    if (updates.heightCm !== undefined) athUpdates.heightCm = updates.heightCm;
+    if (updates.weightKg !== undefined) athUpdates.weightKg = updates.weightKg;
+    if (updates.restingHeartRate !== undefined) athUpdates.restingHeartRate = updates.restingHeartRate;
+    if (updates.maxHeartRate !== undefined) athUpdates.maxHeartRate = updates.maxHeartRate;
+    if (updates.lactateThresholdHeartRate !== undefined) athUpdates.lactateThresholdHeartRate = updates.lactateThresholdHeartRate;
+    if (updates.thresholdPaceSecPerKm !== undefined) athUpdates.thresholdPaceSecPerKm = updates.thresholdPaceSecPerKm;
+    if (updates.thresholdPowerWatts !== undefined) athUpdates.thresholdPowerWatts = updates.thresholdPowerWatts;
+    if (updates.recentRaceResults !== undefined) athUpdates.recentRaceResults = updates.recentRaceResults;
+    if (updates.preferredUnits !== undefined) athUpdates.preferredUnits = updates.preferredUnits;
+
+    // Backward compatibility property replication
+    if (updates.restingHeartRate !== undefined && updates.restingHR === undefined) updates.restingHR = updates.restingHeartRate;
+    if (updates.maxHeartRate !== undefined && updates.maxHR === undefined) updates.maxHR = updates.maxHeartRate;
+    if (updates.lactateThresholdHeartRate !== undefined && updates.thresholdHR === undefined) updates.thresholdHR = updates.lactateThresholdHeartRate;
+    if (updates.preferredUnits !== undefined && updates.units === undefined) updates.units = updates.preferredUnits;
 
     try {
-      await setDoc(userRef, cleanedUpdates, { merge: true });
+      await setDoc(userRef, rootUpdates, { merge: true });
+      await setDoc(athleteRef, athUpdates, { merge: true });
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}`);
+      handleFirestoreError(err, OperationType.UPDATE, `users/${user.uid}/profile/athlete`);
     }
 
-    setAthleteProfile((prev) => (prev ? { ...prev, ...updates } : null));
+    setAthleteProfile((prev) => {
+      if (!prev) return null;
+      return { ...prev, ...updates };
+    });
   };
 
   // If environment variables are missing, show a beautiful diagnostic setup error instead of crashing the process

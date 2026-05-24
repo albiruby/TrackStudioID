@@ -10,6 +10,11 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
+      // Athlete Profile Subcollection
+      match /profile/{profileId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
       // Activity Streams (Nested Subcollection)
       match /activityStreams/{activityId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -43,6 +48,16 @@ service cloud.firestore {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
       match /bestEfforts/{activityId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Calculator results & history
+      match /calculatorResults/{resultId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // User custom settings
+      match /settings/{settingId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }

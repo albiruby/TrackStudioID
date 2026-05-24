@@ -9,12 +9,12 @@ export interface AthleteProfile {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  weightKg: number;
-  heightCm: number;
-  restingHR: number;
-  maxHR: number;
-  thresholdHR: number;
-  vdotScore: number;
+  weightKg?: number | null;
+  heightCm?: number | null;
+  restingHR?: number | null;
+  maxHR?: number | null;
+  thresholdHR?: number | null;
+  vdotScore?: number | null;
   stravaConnected: boolean;
   stravaAthleteId?: string;
   intervalsConnected?: boolean;
@@ -22,6 +22,22 @@ export interface AthleteProfile {
   createdAt?: any;
   updatedAt?: any;
   units?: 'metric' | 'imperial';
+  birthDate?: string | null;
+  sex?: string | null;
+  restingHeartRate?: number | null;
+  maxHeartRate?: number | null;
+  lactateThresholdHeartRate?: number | null;
+  thresholdPaceSecPerKm?: number | null;
+  thresholdPowerWatts?: number | null;
+  recentRaceResults?: {
+    id: string;
+    distanceMeters: number;
+    timeSeconds: number;
+    date: string;
+    source: 'manual' | 'strava' | 'intervals';
+    notes?: string;
+  }[];
+  preferredUnits?: 'metric' | 'imperial';
   additionalData?: {
     age?: number;
     heightCm?: number;

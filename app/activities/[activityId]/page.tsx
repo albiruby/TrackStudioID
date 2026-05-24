@@ -330,6 +330,10 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
             <button onClick={() => alert('Data exporter in development')} className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-colors">
               Export Data
             </button>
+            <button onClick={() => router.push(`/compare-lab?activityId=${activity.id}&tab=planned`)} className="px-3 py-1.5 bg-[#FC5200]/10 hover:bg-[#FC5200]/20 border border-[#FC5200]/30 text-[#FC5200] hover:text-white rounded text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-colors">
+              <Activity className="w-3.5 h-3.5" />
+              <span>Compare Lab</span>
+            </button>
             <button onClick={handleDelete} disabled={isDeleting} className="px-3 py-1.5 hover:bg-red-950/40 hover:border-red-900/60 border border-zinc-800 text-zinc-500 hover:text-red-400 rounded text-[10px] uppercase font-bold tracking-wider inline-flex items-center gap-2 transition-colors">
               <Trash2 className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">{isDeleting ? '...' : 'Erase'}</span>
