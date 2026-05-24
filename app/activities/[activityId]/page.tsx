@@ -370,7 +370,7 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
               {new Date(activity.startDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
             </span>
             <span className="text-zinc-700">&bull;</span>
-            <span className="text-[#FC5200]">SRC: {activity.source?.toUpperCase() || 'UNKNOWN'}</span>
+            <span className="text-[#FC5200]">SRC: {activity.source?.toUpperCase() || 'MANUAL'}</span>
           </div>
         </div>
 

@@ -306,6 +306,13 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
             <button onClick={() => router.push('/how-to-use')} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors">How to Use</button>
             <button onClick={() => router.push('/settings')} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors">Settings</button>
             <button onClick={() => router.push('/data-health')} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-400 hover:text-white hover:bg-white/5 transition-colors">Data Health</button>
+            {process.env.NODE_ENV === 'development' && (
+              <>
+                <button onClick={() => router.push('/testing-checklist')} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-amber-500 hover:bg-amber-500/10 transition-colors">Internal: QA</button>
+                <button onClick={() => router.push('/launch-checklist')} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-blue-500 hover:bg-blue-500/10 transition-colors">Internal: Launch API</button>
+                <button onClick={() => router.push('/release-notes')} className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-purple-500 hover:bg-purple-500/10 transition-colors">Internal: Version</button>
+              </>
+            )}
           </div>
         </div>
 
