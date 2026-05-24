@@ -266,7 +266,7 @@ export default function DataHealthPage() {
   const handleRunAudit = async () => {
     if (!user) return;
     setAuditing(true);
-    setAuditStep('INITIATING LOCAL STORAGE TELEMETRY SCAN...');
+    setAuditStep('INITIATING LOCAL STORAGE SCAN...');
     setWarnings([]);
 
     await new Promise(r => setTimeout(r, 450));
@@ -504,7 +504,7 @@ export default function DataHealthPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-black text-[#FC5200]">
         <Loader2 className="w-8 h-8 animate-spin mb-4" />
-        <span className="text-xs tracking-wider uppercase">TUNING DATA SECURITY PROTOCOLS...</span>
+        <span className="text-xs tracking-wider uppercase">CHECKING DATA SECURITY SETTINGS...</span>
       </div>
     );
   }
@@ -1005,7 +1005,7 @@ export default function DataHealthPage() {
                     </span>
                   ) : (
                     <span className="px-3 py-1.5 border border-amber-950 bg-amber-950/20 text-[#FC5200] font-bold uppercase tracking-wide text-xs rounded block">
-                      {warnings.length} SCHEMATIC PROTOCOL ISSUES
+                      {warnings.length} SCHEMA ISSUES
                     </span>
                   )}
                 </div>

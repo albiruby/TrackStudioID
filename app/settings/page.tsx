@@ -690,7 +690,7 @@ export default function SettingsPage() {
                         {showIntervalsForm && (
                           <form onSubmit={handleConnectIntervalsApiKey} className="mt-4 p-4 border border-indigo-900/40 bg-indigo-950/10 rounded-lg space-y-4">
                              <div className="text-xs text-indigo-400 mb-2 font-mono">
-                               API key connection is intended for private use. For public deployment, use OAuth.
+                               API key connection is intended for private use. For public use, use OAuth.
                              </div>
                              <div>
                                <label htmlFor="intervals-athlete-id" className="block text-xs uppercase font-bold text-zinc-400 tracking-wider mb-1.5">Athlete ID (Optional)</label>

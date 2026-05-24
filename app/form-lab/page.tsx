@@ -201,14 +201,14 @@ export default function FormLabPage() {
               cardiacDrift = ((ratio1 - ratio2) / ratio1) * 100;
             }
           } else {
-            driftReason = "Telemetry stream sample subsets are insufficient after telemetry pruning.";
+            driftReason = "Stream sample size is insufficient after data pruning.";
           }
         } else {
           driftReason = "Deterministic velocity coordinates must be synchronized to measure drift.";
         }
       }
     } else {
-      driftReason = "Stream telemetry requires syncing specific high resolution activity datasets.";
+      driftReason = "Activity stream data requires syncing specific high resolution activity datasets.";
     }
 
     // 4. Heat-Adjusted Efficiency
@@ -299,7 +299,7 @@ export default function FormLabPage() {
     );
   }
 
-  // Pre-calculate system-wide telemetry metadata summaries for the sidebar
+  // Pre-calculate system-wide stream metadata summaries for the sidebar
   const totalRuns = activities.length;
   const runsWithCadence = activities.filter(a => !!a.cadenceAvg).length;
   const runsWithHR = activities.filter(a => !!a.averageHeartRate).length;
@@ -592,7 +592,7 @@ export default function FormLabPage() {
                 {streamLoading ? (
                   <div className="flex flex-col justify-center items-center py-16 gap-3">
                     <RefreshCw className="w-7 h-7 animate-spin text-[#FC5200]" />
-                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono font-bold">Interrogating high-fidelity telemetry channels...</span>
+                    <span className="text-[10px] text-zinc-400 uppercase tracking-widest font-mono font-bold">Fetching high-fidelity activity streams...</span>
                   </div>
                 ) : stream && stream.cadence && stream.cadence.length > 0 ? (
                   <div className="h-[240px] w-full pt-4">
@@ -792,7 +792,7 @@ export default function FormLabPage() {
 
                   {/* 4. Stream Availability */}
                   <div className="flex justify-between items-center pb-2 border-b border-white/5">
-                    <span className="text-zinc-400">Telemetry Streams:</span>
+                    <span className="text-zinc-400">Activity Streams:</span>
                     <div className="flex items-center gap-1.5">
                       {runsWithStreams > 0 ? (
                         <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -823,7 +823,7 @@ export default function FormLabPage() {
                 </div>
 
                 <div className="border border-white/10 bg-zinc-950/40 p-3 rounded space-y-1.5 text-[9.5px] text-zinc-400 leading-normal uppercase font-mono">
-                  <span className="text-zinc-100 font-bold block">Telemetry Integrity Rules:</span>
+                  <span className="text-zinc-100 font-bold block">Data Integrity Rules:</span>
                   <p>• Data points represent authentic sensor streams with zero AI alterations.</p>
                   <p>• Efficiency indexes represent pure mathematical metrics based directly on real activity payloads.</p>
                 </div>

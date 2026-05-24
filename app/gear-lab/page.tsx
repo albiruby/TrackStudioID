@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
+import { SyncRequiredState } from '../../components/common/SyncRequiredState';
 import { 
   ArrowLeft, 
   Settings, 
@@ -677,11 +678,8 @@ export default function GearTrackerPage() {
                 })}
               </div>
             ) : (
-              <div className="h-48 border border-dashed border-white/10 rounded-lg flex flex-col items-center justify-center p-4 text-center">
-                <Database className="w-8 h-8 text-zinc-650 mb-2" />
-                <span className="text-xs text-zinc-400 leading-relaxed max-w-sm font-bold font-mono">
-                  Gear data is not available. Add shoes manually or sync activities with gear information.
-                </span>
+              <div className="h-48 border-white/10 rounded-lg flex flex-col items-center justify-center p-4">
+                <SyncRequiredState requirementId="STRAVA_ACTIVITY_SYNC_REQUIRED" customDescription="Gear data is not available. Add shoes manually or sync activities with gear information." />
               </div>
             )}
           </div>

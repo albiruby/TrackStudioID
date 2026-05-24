@@ -678,7 +678,7 @@ export default function OvertrainingGuardPage() {
 
               <div className="bg-zinc-950 p-2.5 rounded border border-white/5 text-[9.5px] leading-relaxed text-zinc-450 uppercase font-mono">
                 <span className="text-[#FC5200] font-bold block mb-0.5">METRIC RIGOR:</span>
-                Overtraining Guard status computations are deterministic metrics formulated directly from authentic physical sensor telemetry. No synthetic data arrays are injected.
+                Overtraining Guard status computations are deterministic metrics formulated directly from authentic physical sensor data. No synthetic data arrays are injected.
               </div>
             </div>
 

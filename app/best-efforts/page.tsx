@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
+import { SyncRequiredState } from '../../components/common/SyncRequiredState';
 import { 
   ArrowLeft, 
   Award, 
@@ -362,17 +363,7 @@ export default function BestEffortsPage() {
             </div>
           </div>
         ) : (
-          <div className="bg-[#111113] border border-white/10 rounded-lg p-12 text-center space-y-4">
-            <div className="w-12 h-12 bg-zinc-800/50 border border-white/10 flex items-center justify-center rounded-full mx-auto animate-pulse">
-              <Database className="w-6 h-6 text-zinc-500" />
-            </div>
-            <div className="max-w-md mx-auto space-y-3">
-              <h3 className="text-base font-bold text-white uppercase font-mono">No Best Efforts Synced</h3>
-              <p className="text-xs text-zinc-400 uppercase leading-relaxed font-mono">
-                Best effort data is not available. Sync activity details from Strava or use activities with available stream data.
-              </p>
-            </div>
-          </div>
+          <SyncRequiredState requirementId="STRAVA_ACTIVITY_SYNC_REQUIRED" customDescription="Best effort data is not available. Sync activities from Strava or ensure activities have available stream and lap data." />
         )}
 
       </div>

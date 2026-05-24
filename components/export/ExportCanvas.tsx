@@ -53,7 +53,8 @@ export default function ExportCanvas({
   }, [payload.pace, isMetric]);
 
   const displayElevation = useMemo(() => {
-    const meters = payload.elevationMeters || 0;
+    if (payload.elevationMeters === undefined || payload.elevationMeters === null) return '—';
+    const meters = payload.elevationMeters;
     if (isMetric) {
       return `${Math.round(meters)} M`;
     }
@@ -62,7 +63,8 @@ export default function ExportCanvas({
 
   const displayDuration = useMemo(() => {
     const secs = payload.duration;
-    if (isNaN(secs) || secs <= 0) return '00:00';
+    if (secs === undefined || secs === null || isNaN(secs)) return '—';
+    if (secs <= 0) return '00:00';
     const h = Math.floor(secs / 3600);
     const m = Math.floor((secs % 3600) / 60);
     const s = Math.round(secs % 60);
@@ -274,7 +276,7 @@ export default function ExportCanvas({
             <g transform="translate(280, 40)">
               <text x="0" y="0" className="font-mono" fontSize="12" fill="#8C847A" letterSpacing="2">HEART METRIC</text>
               <text x="0" y="30" className="font-sans" fontSize="20" fontWeight="700" fill="#1E1C1A">
-                {payload.averageHeartRate ? `${Math.round(payload.averageHeartRate)} BPM` : 'NOT DEPLOYED'}
+                {payload.averageHeartRate ? `${Math.round(payload.averageHeartRate)} BPM` : 'NOT AVAILABLE'}
               </text>
             </g>
 
@@ -696,7 +698,7 @@ export default function ExportCanvas({
           <g transform={`translate(60, ${height - 110})`}>
             <line x1="-20" y1="-20" x2={width - 80} y2="-20" stroke="#ffffff" strokeWidth="2" />
             <text x="0" y="20" className="font-mono" fontSize="15" fontWeight="900" fill="#ffffff">USER ACCOUNT SIGNED: {payload.athleteName.toUpperCase()}</text>
-            <text x="0" y="45" className="font-mono" fontSize="12" fill="#71717a">VERIFICATION STATUS: 100% CANONICAL HISTORIES • FREE DEPLOYMENT API</text>
+            <text x="0" y="45" className="font-mono" fontSize="12" fill="#71717a">VERIFICATION STATUS: 100% CANONICAL HISTORIES • FREE API TIER</text>
           </g>
         </g>
       )}

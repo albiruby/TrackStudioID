@@ -444,7 +444,7 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
         <div className="bg-[#111113] border border-zinc-800/80 rounded p-6">
           <div className="flex flex-col mb-6">
             <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-1 inline-flex items-center gap-2">
-              <Activity className="w-4 h-4 text-[#FC5200]" /> High-Resolution Telemetry Streams
+              <Activity className="w-4 h-4 text-[#FC5200]" /> High-Resolution Activity Streams
             </h3>
           </div>
 

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
+import { DataRequiredState } from '../../components/common/DataRequiredState';
 import { 
   ArrowLeft, 
   RefreshCw, 
@@ -279,7 +280,7 @@ export default function WellnessPage() {
             </div>
           </div>
           <div className="text-[10px] text-zinc-400 uppercase font-mono bg-zinc-800/50 px-3 py-1.5 rounded border border-white/5 font-semibold">
-            Today: {new Date().toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+            WELLNESS LOG
           </div>
         </div>
 
@@ -329,12 +330,8 @@ export default function WellnessPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="py-12 border-b border-white/5 flex flex-col items-center justify-center text-center space-y-4">
-                    <AlertCircle className="w-10 h-10 text-zinc-500" />
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-bold text-white uppercase tracking-wide">Not enough data to calculate readiness</h3>
-                      <p className="text-xs text-zinc-500">Requires at least 2 of the primary biometric or load components below.</p>
-                    </div>
+                  <div className="py-12 border-b border-white/5">
+                    <DataRequiredState requirementId="WELLNESS_REQUIRED" customDescription="Not enough data to calculate readiness. Requires at least 2 of the primary biometric or load components below." />
                   </div>
                 )}
               </div>

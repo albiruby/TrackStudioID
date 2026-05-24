@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
+import { db } from '../../lib/firebase/client';
 import { RefreshCw, Shield, Terminal } from 'lucide-react';
 
 export default function LoginPage() {
@@ -12,9 +13,27 @@ export default function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      router.push('/dashboard');
-    }
+    const checkOnboarding = async () => {
+      if (!user) return;
+      if (!db) {
+        router.push('/dashboard');
+        return;
+      }
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const onboardingRef = doc(db, 'users', user.uid, 'settings', 'onboarding');
+        const snap = await getDoc(onboardingRef);
+        if (snap.exists() && snap.data()?.completed) {
+          router.push('/dashboard');
+        } else {
+          router.push('/onboarding');
+        }
+      } catch (err) {
+        console.error('Error checking onboarding status:', err);
+        router.push('/dashboard');
+      }
+    };
+    checkOnboarding();
   }, [user, router]);
 
   const handleGoogleSignIn = async () => {

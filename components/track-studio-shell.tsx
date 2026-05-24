@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../context/auth-context';
+import { SyncRequiredState } from './common/SyncRequiredState';
 import { 
   getActivities, 
   saveActivity, 
@@ -526,7 +527,7 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
                          {Math.round(latestLoad.fitnessCtl!)}
                        </div>
                      ) : (
-                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Sync Intervals.icu load data</div>
+                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Sync required</div>
                      )}
                    </div>
 
@@ -538,7 +539,7 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
                          {Math.round(latestLoad.fatigueAtl!)}
                        </div>
                      ) : (
-                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Sync Intervals.icu load data</div>
+                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Sync required</div>
                      )}
                    </div>
 
@@ -550,7 +551,7 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
                          {latestLoad.formTsb! > 0 ? `+${Math.round(latestLoad.formTsb!)}` : Math.round(latestLoad.formTsb!)}
                        </div>
                      ) : (
-                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Sync Intervals.icu load data</div>
+                       <div className="text-zinc-500 text-[10px] uppercase font-mono font-bold mt-1.5 leading-tight">Sync required</div>
                      )}
                    </div>
                    
@@ -1301,9 +1302,8 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
                     })}
                   </div>
                 ) : (
-                  <div className="py-16 border border-dashed border-white/10 rounded-xl flex flex-col items-center justify-center text-center">
-                    <Database className="w-8 h-8 text-zinc-600 mb-3" />
-                    <p className="text-sm text-zinc-400">No activities synced yet. Connect Strava and sync your activities.</p>
+                  <div className="py-16 border border-dashed border-white/10 rounded-xl">
+                    <SyncRequiredState requirementId="STRAVA_ACTIVITY_SYNC_REQUIRED" />
                   </div>
                 )}
               </div>

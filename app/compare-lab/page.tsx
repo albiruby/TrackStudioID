@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
+import { EmptyState } from '../../components/common/EmptyState';
 import { 
   ArrowLeft, Activity, RefreshCw, Database, Compass, AlertTriangle, 
   Layers, Clock, Zap, Heart, TrendingUp, TrendingDown, Route, Target, CheckCircle2
@@ -191,7 +192,7 @@ export default function CompareActivitiesPage() {
               <h1 className="text-xl font-extrabold uppercase tracking-tight text-white font-mono leading-none">Compare Activities</h1>
             </div>
             <p className="text-xs text-zinc-400 uppercase tracking-widest mt-1.5 font-bold">
-              Analyze deterministic splits, streams, and route telemetry side-by-side.
+              Analyze deterministic splits, streams, and route data side-by-side.
             </p>
           </div>
         </div>
@@ -413,7 +414,7 @@ export default function CompareActivitiesPage() {
                 <div className="bg-[#111113] border border-white/10 rounded-lg p-6 space-y-8 shadow-sm">
                     <h3 className="text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2 font-mono">
                         <TrendingUp className="w-4 h-4 text-zinc-400" />
-                        Stream Telemetry Comparison
+                        Activity Stream Comparison
                     </h3>
 
                     {streamGrid.length > 0 ? (
@@ -528,7 +529,7 @@ export default function CompareActivitiesPage() {
                     ) : (
                         <div className="text-amber-500 text-xs uppercase font-bold p-4 bg-amber-500/10 border border-amber-500/20 rounded font-mono flex items-center">
                             <AlertTriangle className="w-4 h-4 inline mr-2" />
-                            Stream telemetry is required for detailed visual comparison. At least one selected activity lacks synchronized stream channels.
+                            Activity stream data is required for detailed visual comparison. At least one selected activity lacks synchronized stream channels.
                         </div>
                     )}
                 </div>
@@ -558,14 +559,12 @@ export default function CompareActivitiesPage() {
 
             </div>
         ) : (
-            <div className="bg-[#111113] border border-white/10 rounded-lg p-8 text-center space-y-4 shadow-sm py-20">
-                <Database className="w-12 h-12 text-zinc-700 mx-auto" />
-                <div className="space-y-1">
-                    <h3 className="text-sm font-bold text-zinc-300 uppercase font-mono tracking-widest">Select Benchmarks</h3>
-                    <p className="text-xs text-zinc-500 max-w-sm mx-auto uppercase font-mono">
-                        Choose two real synced activities from the dropdowns above to initiate the deterministic comparison engine.
-                    </p>
-                </div>
+            <div className="py-12">
+                <EmptyState 
+                  title="Select Benchmarks" 
+                  description="Choose two real synced activities from the dropdowns above to initiate the deterministic comparison engine."
+                  icon={<Database className="w-6 h-6" />}
+                />
             </div>
         )}
 

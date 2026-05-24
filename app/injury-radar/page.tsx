@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
+import { DataRequiredState } from '../../components/common/DataRequiredState';
+import { SyncRequiredState } from '../../components/common/SyncRequiredState';
 import { 
   ArrowLeft, 
   ShieldAlert, 
@@ -275,7 +277,7 @@ export default function InjuryRadarPage() {
       flags.push({ title: "Severe Soreness Flag", desc: `Muscle soreness scored ${latest.soreness}/5. Rest is strongly indicated`, type: 'extreme' });
     }
     if (latest.fatigue !== undefined && latest.fatigue !== null && latest.fatigue >= 4) {
-      flags.push({ title: "High Neural Fatigue", desc: `Overall fatigue registered at level ${latest.fatigue}/5`, type: 'extreme' });
+      flags.push({ title: "High Systemic Fatigue", desc: `Overall fatigue registered at level ${latest.fatigue}/5`, type: 'extreme' });
     }
 
     return {
@@ -707,14 +709,8 @@ export default function InjuryRadarPage() {
                   </ResponsiveContainer>
                 </div>
               ) : (
-                <div className="bg-zinc-900/40 p-8 text-center rounded border border-white/5 space-y-2 py-12">
-                  <Database className="w-8 h-8 text-zinc-500 mx-auto" strokeWidth={1.5} />
-                  <p className="text-xs text-zinc-400 leading-normal uppercase font-mono max-w-sm mx-auto">
-                    At least 4 weeks of activity data is required.
-                  </p>
-                  <p className="text-[10px] text-zinc-550 leading-normal uppercase font-mono max-w-md mx-auto">
-                    We require a continuous rolling series to map Acute vs Chronic load metrics without data gap distortion.
-                  </p>
+                <div className="py-12">
+                   <DataRequiredState requirementId="ENOUGH_HISTORY_REQUIRED" customDescription="At least 4 weeks of continuous activity data is required to map Acute vs Chronic load metrics without data gap distortion." />
                 </div>
               )}
             </div>
@@ -778,16 +774,8 @@ export default function InjuryRadarPage() {
                   </div>
                 </div>
               ) : (
-                <div className="p-4 bg-zinc-950/40 border border-white/5 rounded text-center text-zinc-500 text-xs font-mono uppercase leading-relaxed space-y-2">
-                  <Database className="w-6 h-6 mx-auto text-zinc-500" />
-                  <p className="text-amber-500 font-bold">Wellness data is not available.</p>
-                  <p className="text-[9.5px]" style={{ textTransform: 'uppercase' }}>Log daily muscle soreness and fatigue parameters to activate warning triggers.</p>
-                  <button
-                    onClick={() => router.push('/morning-check')}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 border border-white/10 hover:border-white/20 text-[#FC5200] text-[10px] font-bold rounded uppercase cursor-pointer transition-all"
-                  >
-                    Log Morning Wellness
-                  </button>
+                <div className="py-2">
+                  <SyncRequiredState requirementId="WELLNESS_REQUIRED" customDescription="Log daily muscle soreness and fatigue parameters to activate warning triggers." />
                 </div>
               )}
             </div>
@@ -829,7 +817,7 @@ export default function InjuryRadarPage() {
               
               <div className="bg-zinc-950 p-2.5 rounded border border-white/5 text-[9.5px] leading-relaxed text-zinc-400">
                 <span className="text-[#FC5200] font-bold block mb-0.5">METRIC RIGOR:</span>
-                Track.Studio utilizes deterministic mathematical modeling matching elite physical monitoring systems. We never synthesize random values or simulate safety vectors when physical telemetry is missing.
+                Track.Studio utilizes deterministic mathematical modeling matching elite physical monitoring systems. We never synthesize random values or simulate safety vectors when physical data is missing.
               </div>
             </div>
 

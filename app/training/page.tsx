@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
+import { SyncRequiredState } from '../../components/common/SyncRequiredState';
 import { 
   ArrowLeft, 
   TrendingUp, 
@@ -1044,12 +1045,8 @@ export default function TrainingPage() {
               <h2 className="text-xs text-zinc-500 font-bold tracking-widest uppercase mb-6">Historical Performance Management Chart (PMC)</h2>
               
               {!hasData ? (
-                <div className="h-72 border border-dashed border-white/10 rounded-lg flex flex-col items-center justify-center text-center space-y-4 p-8">
-                  <Database className="w-8 h-8 text-zinc-600" />
-                  <p className="text-sm text-[#FC5200] font-semibold uppercase font-mono">Real training load unpopulated</p>
-                  <p className="text-xs text-zinc-500 max-w-sm leading-relaxed uppercase">
-                    Connect and sync Intervals.icu training load parameters inside Settings to unlock PMC.
-                  </p>
+                <div className="h-72 border border-white/10 rounded-lg flex flex-col items-center justify-center p-8">
+                  <SyncRequiredState requirementId="DAILY_LOAD_REQUIRED" customDescription="Connect and sync Intervals.icu training load parameters inside Settings to unlock PMC." />
                 </div>
               ) : !showPMCChart ? (
                 <div className="h-72 border border-dashed border-white/10 rounded-lg flex flex-col items-center justify-center text-center space-y-3 p-8">

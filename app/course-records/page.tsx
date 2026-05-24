@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/auth-context';
+import { EmptyState } from '../../components/common/EmptyState';
 import { 
   ArrowLeft, 
   Award, 
@@ -594,17 +595,11 @@ export default function CourseRecordsPage() {
             })}
           </div>
         ) : (
-          <div className="bg-[#111113] border border-white/10 rounded-lg p-12 text-center space-y-4">
-            <div className="w-12 h-12 bg-zinc-800/50 border border-white/10 flex items-center justify-center rounded-full mx-auto">
-              <Navigation className="w-6 h-6 text-zinc-500 transform rotate-45" />
-            </div>
-            <div className="max-w-md mx-auto space-y-3">
-              <h3 className="text-base font-bold text-white uppercase font-mono">Course records registry empty</h3>
-              <p className="text-xs text-zinc-400 uppercase leading-relaxed font-mono">
-                Log activities into the dashboard console workout sheets to detect historical record runs. No template or simulated values are permitted.
-              </p>
-            </div>
-          </div>
+          <EmptyState 
+            title="Course records registry empty" 
+            description="Log activities into the dashboard console workout sheets to detect historical record runs. No template or simulated values are permitted." 
+            icon={<Navigation className="w-6 h-6 transform rotate-45" />}
+          />
         )}
 
       </div>
