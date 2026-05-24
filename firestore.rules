@@ -60,6 +60,26 @@ service cloud.firestore {
       match /settings/{settingId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // Gear tracking nested collection
+      match /gear/{gearId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Workout comparisons nested collection
+      match /workoutComparisons/{comparisonId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Workouts custom collection
+      match /workouts/{workoutId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Course records custom collection
+      match /courseRecords/{courseId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Keep /athletes/ collection for full support of any legacy routes

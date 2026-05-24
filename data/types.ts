@@ -203,12 +203,24 @@ export interface DailyTrainingLoad {
 export interface CanonicalGear {
   id: string;
   userId: string;
+  source: 'strava' | 'manual';
+  externalId?: string;
   name: string;
-  brand: string;
-  currentDistanceMeters: number;
-  maxDistanceMeters: number;
-  acquiredDate: string;
-  status: 'active' | 'retired';
+  brand?: string;
+  model?: string;
+  nickname?: string;
+  type: 'shoes' | 'bike' | 'other';
+  distanceMeters: number;
+  manualDistanceMeters?: number;
+  replacementThresholdKm?: number;
+  retired?: boolean;
+  retiredAt?: string;
+  notes?: string;
+  primary?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  syncedAt?: string;
+  raw?: any;
 }
 export interface TrainingLoadRecord {
   id: string;
@@ -281,5 +293,32 @@ export interface CanonicalActivityStream {
   syncedAt?: string;
   updatedAt?: string;
   dataHealth?: string[];
+}
+
+export interface CourseRecord {
+  id?: string;
+  userId: string;
+  name: string;
+  sourceActivityId: string;
+  routePolyline?: string;
+  distanceMeters: number;
+  elevationGainMeters: number;
+  bestActivityId: string;
+  bestTimeSeconds: number;
+  bestPaceSecPerKm: number;
+  attempts?: CourseAttempt[];
+  groupingMethod: "manual";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CourseAttempt {
+  activityId: string;
+  date: string;
+  movingTimeSeconds: number;
+  distanceMeters: number;
+  paceSecPerKm: number;
+  averageHeartRate?: number | null;
+  elevationGainMeters: number;
 }
 

@@ -856,56 +856,89 @@ export default function DataHealthPage() {
             <div className="space-y-4">
               <div>
                 <span className="text-xs text-[#FC5200] font-semibold tracking-wider uppercase">SYSTEM ANALYSIS</span>
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider mt-1">Dashboard Readiness</h3>
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider mt-1">Feature Readiness Board</h3>
               </div>
 
               {(() => {
-                 // Helpers to determine status
-                 const hasActivities = activities.length > 0;
-                 const hasValidActivities = activities.some(a => a.distanceMeters && a.startDate);
-                 const hasLoad = dailyLoads.length > 0;
-                 const hasWellness = wellnessLogs.length > 0;
+                 const hasGear = counts.gear > 0;
                  const hasBestEfforts = counts.bestEfforts > 0;
-                 const hasGpsActs = activities.some(a => a.hasGps || a.map?.summary_polyline);
-
-                 const renderStatus = (condition1: boolean, condition2: boolean) => {
-                     if (condition1 && condition2) return <span className="text-emerald-400 uppercase text-[9.5px] font-bold block mt-1">AVAILABLE</span>;
-                     if (condition1 || condition2) return <span className="text-yellow-400 uppercase text-[9.5px] font-bold block mt-1">PARTIAL</span>;
-                     return <span className="text-zinc-500 uppercase text-[9.5px] font-bold mt-1 block">SYNC REQUISITE</span>;
-                 };
-
-                 const renderStatusSimple = (condition: boolean) => {
-                     if (condition) return <span className="text-emerald-400 uppercase text-[9.5px] font-bold mt-1 block">AVAILABLE</span>;
-                     return <span className="text-zinc-500 uppercase text-[9.5px] font-bold mt-1 block">SYNC REQUISITE</span>;
-                 };
-
+                 const hasReports = counts.reports > 0;
+                 const gpsActivitiesCount = activities.filter(a => !!a.map?.summary_polyline).length;
+                 const hasRouteArt = gpsActivitiesCount > 0;
+                 
+                 // Audit for cards warnings
+                 const potentialExportWarnings = [];
+                 if (activities.some(a => !a.name)) {
+                   potentialExportWarnings.push("Activity missing names (might default to 'Strava Workout')");
+                 }
+                 if (activities.some(a => !a.startDate)) {
+                   potentialExportWarnings.push("Activity missing starting timestamps (gated dates)");
+                 }
+                 if (activities.length > 0 && !activities.some(a => a.averageHeartRate && a.averageHeartRate > 0)) {
+                   potentialExportWarnings.push("No Heart Rate streams tracked; RX template gated");
+                 }
+                 
                  return (
-                   <div className="border border-white/10 p-3 rounded bg-zinc-800/50/20 grid grid-cols-2 gap-3 text-xs text-zinc-400">
-                      <div className="bg-black/30 p-2 rounded border border-white/5">
-                         <span className="text-zinc-400 uppercase text-[9px] block">Weekly Volume</span>
-                         {renderStatusSimple(hasValidActivities)}
+                    <div className="space-y-4">
+                      <div className="border border-white/10 p-3 rounded bg-zinc-800/50/20 space-y-3 text-xs text-zinc-400 font-mono">
+                         {/* Gear Tracker Readiness */}
+                         <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                           <span className="uppercase text-[9.5px]">Gear Tracker Readiness</span>
+                           {hasGear ? (
+                             <span className="text-emerald-400 font-bold uppercase">{counts.gear} Active items</span>
+                           ) : (
+                             <span className="text-amber-500 font-bold uppercase">No items listed</span>
+                           )}
+                         </div>
+
+                         {/* Best Efforts Readiness */}
+                         <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                           <span className="uppercase text-[9.5px]">Best Effort Readiness</span>
+                           {hasBestEfforts ? (
+                             <span className="text-emerald-400 font-bold uppercase">{counts.bestEfforts} Records loaded</span>
+                           ) : (
+                             <span className="text-zinc-500 font-bold uppercase">Sync required</span>
+                           )}
+                         </div>
+
+                         {/* Report Readiness */}
+                         <div className="flex justify-between items-center border-b border-white/10 pb-2">
+                           <span className="uppercase text-[9.5px]">Report Aggregation</span>
+                           {hasReports ? (
+                             <span className="text-emerald-400 font-bold uppercase">{counts.reports} Summaries</span>
+                           ) : (
+                             <span className="text-zinc-500 font-bold uppercase">Aggregate ready</span>
+                           )}
+                         </div>
+
+                         {/* Route Art Readiness */}
+                         <div className="flex justify-between items-center">
+                           <span className="uppercase text-[9.5px]">Route Art Readiness</span>
+                           {hasRouteArt ? (
+                             <span className="text-emerald-400 font-bold uppercase">{gpsActivitiesCount} GPS routes ready</span>
+                           ) : (
+                             <span className="text-amber-500 font-bold uppercase">No GPS activities found</span>
+                           )}
+                         </div>
                       </div>
-                      <div className="bg-black/30 p-2 rounded border border-white/5">
-                         <span className="text-zinc-400 uppercase text-[9px] block">Recent Activities</span>
-                         {renderStatusSimple(hasActivities)}
+
+                      {/* Export payload warnings banner if any occur */}
+                      <div className="p-3 bg-zinc-950/40 border border-white/5 rounded text-[10px] space-y-2">
+                         <span className="text-zinc-400 uppercase font-bold block tracking-wider">Export Payload Warnings:</span>
+                         {potentialExportWarnings.length > 0 ? (
+                           <div className="space-y-1">
+                             {potentialExportWarnings.slice(0, 2).map((w, index) => (
+                               <div key={index} className="flex items-center gap-1.5 text-[#FC5200] font-mono leading-relaxed uppercase">
+                                 <AlertCircle className="w-3 h-3 text-[#FC5200]" strokeWidth={3} />
+                                 <span>{w}</span>
+                               </div>
+                             ))}
+                           </div>
+                         ) : (
+                           <span className="text-emerald-400 uppercase font-mono tracking-wide block">All export payload parameters healthy</span>
+                         )}
                       </div>
-                      <div className="bg-black/30 p-2 rounded border border-white/5">
-                         <span className="text-zinc-400 uppercase text-[9px] block">CTL/ATL Engine</span>
-                         {renderStatusSimple(hasLoad || intervalsConnected)}
-                      </div>
-                      <div className="bg-black/30 p-2 rounded border border-white/5">
-                         <span className="text-zinc-400 uppercase text-[9px] block">Readiness Score</span>
-                         {renderStatus(hasLoad, hasWellness)}
-                      </div>
-                      <div className="bg-black/30 p-2 rounded border border-white/5">
-                         <span className="text-zinc-400 uppercase text-[9px] block">VDOT Engine</span>
-                         {renderStatusSimple(hasBestEfforts)}
-                      </div>
-                      <div className="bg-black/30 p-2 rounded border border-white/5">
-                         <span className="text-zinc-400 uppercase text-[9px] block">Route Art</span>
-                         {renderStatusSimple(hasGpsActs)}
-                      </div>
-                   </div>
+                    </div>
                  );
               })()}
             </div>

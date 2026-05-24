@@ -7,9 +7,10 @@ import {
   getActivities, 
   saveActivity, 
   getWellnessLogs,
-  getDailyLoads
+  getDailyLoads,
+  getGearList
 } from '../lib/firebase/firestore';
-import { CanonicalActivity, DailyWellnessLog, DailyTrainingLoad } from '../data/types';
+import { CanonicalActivity, DailyWellnessLog, DailyTrainingLoad, CanonicalGear } from '../data/types';
 import { 
   formatDistanceKm, 
   formatDuration, 
@@ -65,6 +66,7 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
   const [activities, setActivities] = useState<CanonicalActivity[]>([]);
   const [wellnessLogs, setWellnessLogs] = useState<DailyWellnessLog[]>([]);
   const [dailyLoads, setDailyLoads] = useState<DailyTrainingLoad[]>([]);
+  const [gearList, setGearList] = useState<CanonicalGear[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -86,14 +88,16 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
     if (!user) return;
     try {
       setLoadingData(true);
-      const [acts, logs, loads] = await Promise.all([
+      const [acts, logs, loads, gears] = await Promise.all([
         getActivities(user.uid),
         getWellnessLogs(user.uid),
-        getDailyLoads(user.uid)
+        getDailyLoads(user.uid),
+        getGearList(user.uid)
       ]);
       setActivities(acts.sort((a, b) => (b.startDateLocal || b.startDate || '').localeCompare(a.startDateLocal || a.startDate || '')));
       setWellnessLogs(logs.sort((a, b) => b.date.localeCompare(a.date)));
       setDailyLoads(loads.sort((a, b) => b.date.localeCompare(a.date)));
+      setGearList(gears || []);
     } catch (e) {
       console.error('Error loading dashboard data:', e);
     } finally {
@@ -614,6 +618,78 @@ export default function TrackStudioShell({ activeTab: initialActiveTab = 'dashbo
                   </div>
                 )}
               </div>
+
+              {/* GEAR ALERT WIDGET */}
+              {(() => {
+                if (gearList.length === 0) {
+                  return (
+                    <div className="bg-[#111113] border border-white/10 p-5 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-zinc-900/50 border border-white/5 text-zinc-400 rounded-lg">
+                          <Settings className="w-5 h-5 animate-pulse" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs uppercase tracking-wider font-bold text-zinc-300 font-mono">Gear Status Indicator</h4>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">Gear data is not available. Add shoes manually or sync activities with gear information.</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => router.push('/gear-lab')} 
+                        className="text-xs text-[#FC5200] font-bold uppercase tracking-wider border border-[#FC5200]/30 hover:bg-[#FC5200]/10 px-3 py-1.5 rounded transition cursor-pointer"
+                      >
+                        Shed Registry
+                      </button>
+                    </div>
+                  );
+                }
+
+                // Calculate current distance for each active gear item
+                const exceededShoes = gearList.filter(g => {
+                  if (g.retired) return false;
+                  
+                  let distanceKm = 0;
+                  if (g.source === 'manual') {
+                    distanceKm = (g.manualDistanceMeters || 0) / 1000;
+                  } else {
+                    if (g.distanceMeters && g.distanceMeters > 0) {
+                      distanceKm = g.distanceMeters / 1000;
+                    } else {
+                      const matchingActivities = activities.filter(act => act.gearId === g.externalId || act.id === g.id);
+                      const totalMeters = matchingActivities.reduce((acc, act) => acc + (act.distanceMeters || 0), 0);
+                      distanceKm = totalMeters / 1000;
+                    }
+                  }
+                  
+                  const thresholdKm = g.replacementThresholdKm || 800;
+                  return distanceKm >= thresholdKm;
+                });
+
+                if (exceededShoes.length > 0) {
+                  return (
+                    <div className="bg-red-950/20 border border-red-900/50 p-5 rounded-xl flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-red-900/30 text-red-500 rounded-lg">
+                          <ShieldAlert className="w-5 h-5 animate-bounce" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs uppercase tracking-wider font-bold text-red-400 font-mono">Footwear Replacement Alert Active</h4>
+                          <p className="text-[11px] text-zinc-300 mt-0.5 leading-relaxed font-sans">
+                            Attention: <strong className="text-white">{exceededShoes.map(s => `${s.brand || ''} ${s.name || ''}`.trim()).join(', ')}</strong> has logged cardiovascular mileage exceeding its designated fatigue threshold!
+                          </p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => router.push('/gear-lab')} 
+                        className="text-xs text-red-400 font-bold uppercase tracking-wider border border-red-900/40 hover:bg-red-950/40 px-3 py-1.5 rounded transition shrink-0 ml-4 cursor-pointer"
+                      >
+                        Open Gear Tracker
+                      </button>
+                    </div>
+                  );
+                }
+
+                return null; // Do not show alert if all shoes are below threshold (prevent fake news alerts)
+              })()}
 
               {/* LAB CATEGORY 1 */}
               <div className="space-y-5">

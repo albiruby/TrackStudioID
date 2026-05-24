@@ -122,12 +122,25 @@ export const gearConverter: FirestoreDataConverter<CanonicalGear> = {
     const data = convertTimestamps(snapshot.data());
     return {
       id: snapshot.id,
+      userId: data.userId || '',
+      source: data.source || 'manual',
+      externalId: data.externalId,
       name: data.name || 'Equipment',
       brand: data.brand,
       model: data.model,
+      nickname: data.nickname,
+      type: data.type || 'shoes',
       distanceMeters: typeof data.distanceMeters === 'number' ? data.distanceMeters : 0,
+      manualDistanceMeters: data.manualDistanceMeters,
+      replacementThresholdKm: data.replacementThresholdKm,
+      retired: data.retired || false,
+      retiredAt: data.retiredAt,
       primary: !!data.primary,
-      notes: data.notes
+      notes: data.notes,
+      createdAt: data.createdAt,
+      updatedAt: data.updatedAt,
+      syncedAt: data.syncedAt,
+      raw: data.raw
     };
   }
 };

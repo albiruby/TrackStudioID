@@ -22,6 +22,8 @@ import {
   getActivityDataHealth 
 } from '../../../lib/data/dataLaw';
 import { CanonicalActivity, CanonicalActivityStream, CanonicalLap, CanonicalSplit, CanonicalBestEffort } from '../../../data/types';
+import { mapActivityToPayload } from '../../../lib/export/exportPayload';
+import ExportCardStudio from '../../../components/export/ExportCardStudio';
 import { 
   ArrowLeft, 
   Trash2, 
@@ -74,6 +76,7 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
   const [syncingDetails, setSyncingDetails] = useState(false);
   const [syncingStreams, setSyncingStreams] = useState(false);
   const [syncingStructured, setSyncingStructured] = useState(false);
+  const [isExportStudioOpen, setIsExportStudioOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !athleteProfile) {
@@ -327,9 +330,9 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
                 <span>Sync Laps & Splits</span>
               </button>
             )}
-            <button onClick={() => alert('Data exporter in development')} className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-zinc-300 rounded text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-colors">
-              Export Data
-            </button>
+             <button onClick={() => setIsExportStudioOpen(true)} className="px-3 py-1.5 bg-[#FC5200]/15 hover:bg-[#FC5200]/25 border border-[#FC5200]/40 text-[#FC5200] hover:text-white rounded text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-all cursor-pointer">
+               Export Card
+             </button>
             <button onClick={() => router.push(`/compare-lab?activityId=${activity.id}&tab=planned`)} className="px-3 py-1.5 bg-[#FC5200]/10 hover:bg-[#FC5200]/20 border border-[#FC5200]/30 text-[#FC5200] hover:text-white rounded text-[10px] font-bold uppercase tracking-wider inline-flex items-center gap-2 transition-colors">
               <Activity className="w-3.5 h-3.5" />
               <span>Compare Lab</span>
@@ -707,6 +710,16 @@ export default function ActivityDetailPage({ params }: ActivityDetailPageProps) 
              </div>
           )}
         </div>
+
+        {/* EXPORT CARD STUDIO MODAL */}
+        {activity && (
+          <ExportCardStudio
+            payload={mapActivityToPayload(activity, athleteProfile?.displayName || 'Athlete')}
+            isOpen={isExportStudioOpen}
+            onClose={() => setIsExportStudioOpen(false)}
+            preferredUnits={athleteProfile?.units || 'metric'}
+          />
+        )}
 
       </div>
     </div>
