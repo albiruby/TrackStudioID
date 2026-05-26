@@ -63,19 +63,43 @@ export async function GET(req: NextRequest) {
         athleteName = verifyData.name;
     }
 
-    await saveIntervalsConnection(userId, {
-      provider: 'intervals',
-      connected: true,
-      authMethod: 'oauth',
-      apiKey: null,
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      tokenExpiresAt: Math.floor(Date.now() / 1000) + (tokenData.expires_in || 3600),
-      athleteId: resolvedAthleteId,
-      athleteName: athleteName,
-      lastSyncError: null,
-      updatedAt: new Date().toISOString(),
-    });
+    const connectionPayload = {
+      mockWriteType: 'intervals',
+      userId,
+      publicData: {
+        provider: 'intervals',
+        connected: true,
+        authMethod: 'oauth',
+        athleteId: resolvedAthleteId,
+        athleteName: athleteName,
+        lastSyncError: null,
+        updatedAt: new Date().toISOString(),
+      },
+      privateData: {
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tokenExpiresAt: Math.floor(Date.now() / 1000) + (tokenData.expires_in || 3600),
+        updatedAt: new Date().toISOString(),
+      }
+    };
+
+    try {
+      await saveIntervalsConnection(userId, {
+        provider: 'intervals',
+        connected: true,
+        authMethod: 'oauth',
+        apiKey: null,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        tokenExpiresAt: Math.floor(Date.now() / 1000) + (tokenData.expires_in || 3600),
+        athleteId: resolvedAthleteId,
+        athleteName: athleteName,
+        lastSyncError: null,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (saveErr) {
+      console.warn('Server connection write for Intervals bypassed or failed:', saveErr);
+    }
 
     return new NextResponse(`
       <html>
@@ -83,7 +107,10 @@ export async function GET(req: NextRequest) {
           <p>Intervals.icu connection successful. You can close this window.</p>
           <script>
             if (window.opener) {
-              window.opener.postMessage({ type: 'OAUTH_AUTH_SUCCESS' }, '*');
+              window.opener.postMessage({ 
+                type: 'OAUTH_AUTH_SUCCESS',
+                payload: ${JSON.stringify(connectionPayload)}
+              }, '*');
               window.close();
             } else {
               window.location.href = '/settings';

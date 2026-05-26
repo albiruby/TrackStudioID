@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import { adminDb } from '../firebase/admin';
 import { StravaConnection, StravaTokenResponse } from './types';
+import { fetchFirestoreREST } from '../firebase/rest-utils';
 
 function getStravaAuthCollection(userId: string) {
   return adminDb.collection('users').doc(userId).collection('connections').doc('strava');
@@ -11,109 +12,94 @@ function getStravaPrivateCollection(userId: string) {
 }
 
 export async function getSafeStravaStatus(userId: string) {
+  let data: Partial<StravaConnection> | null = null;
+  let isExpired = false;
+
   try {
     const doc = await getStravaAuthCollection(userId).get();
-    if (!doc.exists) {
-      return {
-        provider: "strava",
-        connected: false,
-        status: "not_connected",
-        label: "Not Connected",
-        athleteId: null,
-        athleteName: null,
-        lastSyncAt: null,
-        lastSyncError: null,
-        tokenStatus: "not_available",
-        setupRequired: true
-      };
+    if (doc.exists) {
+      data = doc.data() as Partial<StravaConnection>;
     }
-    const data = doc.data() as Partial<StravaConnection>;
-    
-    // Proactive Security Migration: If tokens leaked into the public connection doc, move them to private!
-    if (data.accessToken || data.refreshToken) {
-      console.log(`[Security] Migrating legacy leaked Strava tokens for user ${userId}`);
-      await saveStravaConnection(userId, data);
-    }
-
-    // Need to check private collection for expiration
-    // Use try/catch here as well in case private connection doesn't exist
-    let privDocExists = false;
-    let privData: any = null;
-    try {
-      const privDoc = await getStravaPrivateCollection(userId).get();
-      privDocExists = privDoc.exists;
-      privData = privDocExists ? privDoc.data() : null;
-    } catch(err: any) {
-       // if we hit NOT_FOUND, that's fine, we treat it as missing
-    }
-
-    const isExpired = privData && privData.expiresAt ? (privData.expiresAt * 1000) < Date.now() : false;
-
-    return {
-      provider: "strava",
-      connected: data.connected !== false,
-      status: data.connected !== false ? "connected" : "not_connected",
-      label: data.connected !== false ? "Connected" : "Not Connected",
-      athleteId: data.athleteId || null,
-      athleteName: data.athleteFirstname ? `${data.athleteFirstname} ${data.athleteLastname || ''}`.trim() : (data.athleteUsername || null),
-      lastSyncAt: data.lastSyncAt || null,
-      lastSyncError: data.lastSyncError || null,
-      tokenStatus: isExpired ? "expired" : "valid",
-      setupRequired: !!data.reauthRequired,
-      scopes: data.scope || null,
-    };
   } catch (err: any) {
-    if (err.code === 5 || err.code === 7 || err.message?.includes('NOT_FOUND') || err.message?.includes('Missing or insufficient permissions')) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`[Debug] Strava doc missing for user ${userId}`);
-      }
-      return {
-        provider: "strava",
-        connected: false,
-        status: "not_connected",
-        label: "Not Connected",
-        athleteId: null,
-        athleteName: null,
-        lastSyncAt: null,
-        lastSyncError: null,
-        tokenStatus: "not_available",
-        setupRequired: true
-      };
+    console.warn('[Admin SDK Info] falling back to Firestore REST for getSafeStravaStatus');
+    try {
+      data = await fetchFirestoreREST('GET', `users/${userId}/connections/strava`);
+    } catch (restErr: any) {
+      console.error('Firestore REST also failed in getSafeStravaStatus:', restErr.message);
     }
-    throw err;
   }
+
+  if (!data) {
+    return {
+      connected: false,
+      reauthRequired: false,
+      isExpired: false,
+      lastSyncAt: null,
+      lastSyncError: null,
+    };
+  }
+
+  // Proactive Security Migration: If tokens leaked into the public connection doc, move them to private!
+  if (data.accessToken || data.refreshToken) {
+    console.log(`[Security] Migrating legacy leaked Strava tokens for user ${userId}`);
+    await saveStravaConnection(userId, data);
+  }
+
+  let privData: any = null;
+  try {
+    const privDoc = await getStravaPrivateCollection(userId).get();
+    privData = privDoc.exists ? privDoc.data() : null;
+  } catch (err: any) {
+    try {
+      privData = await fetchFirestoreREST('GET', `users/${userId}/privateConnections/strava`);
+    } catch (restErr: any) {
+      console.error('Firestore REST also failed in getSafeStravaStatus private connection fetch:', restErr.message);
+    }
+  }
+
+  isExpired = privData && privData.expiresAt ? (privData.expiresAt * 1000) < Date.now() : false;
+
+  return {
+    connected: data.connected !== false,
+    reauthRequired: !!data.reauthRequired,
+    isExpired,
+    athleteName: data.athleteFirstname ? `${data.athleteFirstname} ${data.athleteLastname || ''}`.trim() : data.athleteUsername,
+    lastSyncAt: data.lastSyncAt || null,
+    lastSyncError: data.lastSyncError || null,
+    scopes: data.scope,
+  };
 }
 
 export async function getStravaConnection(userId: string): Promise<StravaConnection | null> {
-  let docExists = false;
-  let docData: any = {};
-  let privDocExists = false;
-  let privDocData: any = {};
-  
+  let docData: any = null;
+  let privData: any = null;
+
   try {
-    const doc = await getStravaAuthCollection(userId).get();
-    docExists = doc.exists;
-    docData = doc.data() || {};
+    const [doc, privDoc] = await Promise.all([
+      getStravaAuthCollection(userId).get(),
+      getStravaPrivateCollection(userId).get()
+    ]);
+    if (doc.exists) docData = doc.data();
+    if (privDoc.exists) privData = privDoc.data();
   } catch (err: any) {
-    if (err.code === 5 || err.code === 7 || err.message?.includes('NOT_FOUND') || err.message?.includes('Missing or insufficient permissions')) {
-      return null;
+    console.warn('[Admin SDK Info] falling back to Firestore REST for getStravaConnection');
+    try {
+      const [doc, privDoc] = await Promise.all([
+        fetchFirestoreREST('GET', `users/${userId}/connections/strava`),
+        fetchFirestoreREST('GET', `users/${userId}/privateConnections/strava`)
+      ]);
+      docData = doc;
+      privData = privDoc;
+    } catch (restErr: any) {
+      console.error('Firestore REST also failed in getStravaConnection:', restErr.message);
     }
-    throw err;
   }
-  
-  if (!docExists) return null;
-  
-  try {
-    const privDoc = await getStravaPrivateCollection(userId).get();
-    privDocExists = privDoc.exists;
-    privDocData = privDoc.data() || {};
-  } catch (err: any) {
-    // Ignore private missing doc, we just fallback to empty
-  }
-  
+
+  if (!docData) return null;
+
   return {
     ...docData,
-    ...privDocData
+    ...(privData || {})
   } as StravaConnection;
 }
 
@@ -133,18 +119,38 @@ export async function saveStravaConnection(userId: string, data: Partial<StravaC
     }
   });
 
-  // Ensure public doc explicitly deletes leaked private keys
+  // Ensure public doc explicitly deletes leaked private keys for admin SDK (REST payload will just not include them)
   privateKeys.forEach(key => {
     publicData[key] = admin.firestore.FieldValue.delete();
   });
 
-  const promises = [];
-  promises.push(getStravaAuthCollection(userId).set(publicData, { merge: true }));
-  if (Object.keys(privateData).length > 1) {
-    promises.push(getStravaPrivateCollection(userId).set(privateData, { merge: true }));
+  try {
+    const promises = [];
+    promises.push(getStravaAuthCollection(userId).set(publicData, { merge: true }));
+    if (Object.keys(privateData).length > 1) {
+      promises.push(getStravaPrivateCollection(userId).set(privateData, { merge: true }));
+    }
+    await Promise.all(promises);
+  } catch (err: any) {
+    console.warn('[Admin SDK Info] falling back to Firestore REST for saveStravaConnection');
+    try {
+      // Remove Admin FieldValue.delete() sentinel before serializing to REST
+      const cleanPublicData = { ...publicData };
+      privateKeys.forEach(key => {
+        delete cleanPublicData[key];
+      });
+
+      const promises = [];
+      promises.push(fetchFirestoreREST('POST', `users/${userId}/connections/strava`, cleanPublicData));
+      if (Object.keys(privateData).length > 1) {
+        promises.push(fetchFirestoreREST('POST', `users/${userId}/privateConnections/strava`, privateData));
+      }
+      await Promise.all(promises);
+    } catch (restErr: any) {
+      console.error('Firestore REST also failed in saveStravaConnection:', restErr.message);
+      throw restErr;
+    }
   }
-  
-  await Promise.all(promises);
 }
 
 export async function refreshStravaTokenIfNeeded(userId: string): Promise<string> {

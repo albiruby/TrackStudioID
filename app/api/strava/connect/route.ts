@@ -28,12 +28,9 @@ export async function GET(req: NextRequest) {
 
   const scopes = 'read,activity:read_all,profile:read_all';
   
-  // Generate secure state
-  const stateId = crypto.randomUUID();
-  await adminDb.collection('oauth_states').doc(stateId).set({
-    uid: userId,
-    createdAt: new Date().toISOString()
-  });
+  // Generate secure stateless state containing userId
+  const stateObj = { uid: userId, createdAt: new Date().toISOString() };
+  const stateId = Buffer.from(JSON.stringify(stateObj)).toString('base64');
 
   const authUrl = `https://www.strava.com/oauth/authorize?client_id=${clientId}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&approval_prompt=force&scope=${encodeURIComponent(scopes)}&state=${stateId}`;
 

@@ -1,6 +1,6 @@
-import './globals.css';
 import { Inter, Space_Grotesk, JetBrains_Mono } from 'next/font/google';
-import { AuthProvider } from '../context/auth-context';
+import './globals.css';
+import { AuthProvider } from '@/context/auth-context';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 const spaceGrotesk = Space_Grotesk({ subsets: ['latin'], variable: '--font-heading' });
@@ -12,8 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} dark`}>
-      <body className="font-sans antialiased text-[#F5F5F5] bg-[#050505] overflow-x-hidden min-h-screen">
+    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable}`}>
+      <body className="antialiased bg-black text-zinc-100 min-h-screen">
         <AuthProvider>
           {children}
         </AuthProvider>

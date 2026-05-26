@@ -7,9 +7,6 @@ export async function getSafeIntervalsStatus(userId: string): Promise<SafeInterv
     return {
       provider: 'intervals',
       connected: false,
-      status: "not_connected",
-      label: "Not Connected",
-      setupRequired: true,
       authMethod: null,
       athleteId: null,
       athleteName: null,
@@ -21,16 +18,13 @@ export async function getSafeIntervalsStatus(userId: string): Promise<SafeInterv
 
   // Never return private fields!
   return {
-    provider: connection.provider || 'intervals',
-    connected: connection.connected !== false,
-    status: connection.connected !== false ? "connected" : "not_connected",
-    label: connection.connected !== false ? "Connected" : "Not Connected",
-    setupRequired: false,
-    authMethod: connection.authMethod || null,
-    athleteId: connection.athleteId || null,
-    athleteName: connection.athleteName || null,
-    lastSyncAt: connection.lastSyncAt || null,
-    lastSyncError: connection.lastSyncError || null,
-    updatedAt: connection.updatedAt || null
+    provider: connection.provider,
+    connected: connection.connected,
+    authMethod: connection.authMethod,
+    athleteId: connection.athleteId,
+    athleteName: connection.athleteName,
+    lastSyncAt: connection.lastSyncAt,
+    lastSyncError: connection.lastSyncError,
+    updatedAt: connection.updatedAt
   };
 }

@@ -2,49 +2,45 @@ import * as admin from 'firebase-admin';
 import { adminDb } from '../firebase/admin';
 import { IntervalsConnection, SafeIntervalsStatus } from './types';
 import { refreshIntervalsTokenIfNeeded } from './auth';
+import { fetchFirestoreREST } from '../firebase/rest-utils';
 
 export async function getIntervalsConnection(userId: string): Promise<IntervalsConnection | null> {
-  let docExists = false;
-  let docData: any = {};
-  let privDocExists = false;
-  let privDocData: any = {};
+  let publicData: any = null;
+  let privData: any = null;
 
   try {
-    const doc = await adminDb.collection('users').doc(userId).collection('connections').doc('intervals').get();
-    docExists = doc.exists;
-    docData = doc.data() || {};
-  } catch (err: any) {
-    if (err.code === 5 || err.code === 7 || err.message?.includes('NOT_FOUND') || err.message?.includes('Missing or insufficient permissions')) {
-      if (process.env.NODE_ENV !== 'production') {
-        console.log(`[Debug] Intervals connection doc missing for user ${userId}`);
-      }
-      return null;
+    const [doc, privDoc] = await Promise.all([
+      adminDb.collection('users').doc(userId).collection('connections').doc('intervals').get(),
+      adminDb.collection('users').doc(userId).collection('privateConnections').doc('intervals').get()
+    ]);
+    
+    if (doc.exists) publicData = doc.data();
+    if (privDoc.exists) privData = privDoc.data();
+  } catch (e) {
+    console.warn('[Admin SDK Info] falling back to Firestore REST for getIntervalsConnection');
+    try {
+      const [doc, privDoc] = await Promise.all([
+        fetchFirestoreREST('GET', `users/${userId}/connections/intervals`),
+        fetchFirestoreREST('GET', `users/${userId}/privateConnections/intervals`)
+      ]);
+      publicData = doc;
+      privData = privDoc;
+    } catch (restErr: any) {
+      console.error('Firestore REST also failed in getIntervalsConnection:', restErr.message);
     }
-    console.error('Error fetching intervals connection', err);
-    return null;
   }
-  
-  if (!docExists) return null;
 
-  try {
-    const privDoc = await adminDb.collection('users').doc(userId).collection('privateConnections').doc('intervals').get();
-    privDocExists = privDoc.exists;
-    privDocData = privDoc.data() || {};
-  } catch (err: any) {
-    // Ignore private missing doc
-  }
-  
-  const publicData = docData as Partial<IntervalsConnection>;
+  if (!publicData) return null;
   
   // Proactive Security Migration: Move tokens to private collection if they are stored in the public doc
   if (publicData.apiKey || publicData.accessToken || publicData.refreshToken) {
       console.log(`[Security] Migrating legacy leaked Intervals tokens for user ${userId}`);
-      await saveIntervalsConnection(userId, { ...publicData, ...privDocData } as IntervalsConnection);
+      await saveIntervalsConnection(userId, { ...publicData, ...(privData || {}) } as IntervalsConnection);
   }
   
   return {
     ...publicData,
-    ...privDocData
+    ...(privData || {})
   } as IntervalsConnection;
 }
 
@@ -68,14 +64,35 @@ export async function saveIntervalsConnection(userId: string, data: Partial<Inte
     publicData[key] = admin.firestore.FieldValue.delete();
   });
 
-  const promises = [];
-  promises.push(adminDb.collection('users').doc(userId).collection('connections').doc('intervals').set(publicData, { merge: true }));
-  
-  if (Object.keys(privateData).length > 1) {
-    promises.push(adminDb.collection('users').doc(userId).collection('privateConnections').doc('intervals').set(privateData, { merge: true }));
+  try {
+    const promises = [];
+    promises.push(adminDb.collection('users').doc(userId).collection('connections').doc('intervals').set(publicData, { merge: true }));
+    
+    if (Object.keys(privateData).length > 1) {
+      promises.push(adminDb.collection('users').doc(userId).collection('privateConnections').doc('intervals').set(privateData, { merge: true }));
+    }
+    
+    await Promise.all(promises);
+  } catch (e) {
+    console.warn('[Admin SDK Info] falling back to Firestore REST for saveIntervalsConnection');
+    try {
+      // Remove Admin FieldValue.delete() sentinel before serializing to REST
+      const cleanPublicData = { ...publicData };
+      privateKeys.forEach(key => {
+        delete cleanPublicData[key];
+      });
+
+      const promises = [];
+      promises.push(fetchFirestoreREST('POST', `users/${userId}/connections/intervals`, cleanPublicData));
+      if (Object.keys(privateData).length > 1) {
+        promises.push(fetchFirestoreREST('POST', `users/${userId}/privateConnections/intervals`, privateData));
+      }
+      await Promise.all(promises);
+    } catch (restErr: any) {
+      console.error('Firestore REST also failed in saveIntervalsConnection:', restErr.message);
+      throw restErr;
+    }
   }
-  
-  await Promise.all(promises);
 }
 
 export async function markIntervalsConnectionError(userId: string, error: string): Promise<void> {

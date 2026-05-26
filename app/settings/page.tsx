@@ -116,19 +116,42 @@ export default function SettingsPage() {
   }, [user, checkIntervals]);
 
   useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       if (!event.origin.endsWith('.run.app') && !event.origin.includes('localhost')) return;
       if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
         if (event.data.error) {
-           alert('Strava error: ' + event.data.message);
+           alert('Connection error: ' + event.data.message);
         } else {
+           if (event.data.payload) {
+             try {
+               const { db } = await import('../../lib/firebase/client');
+               const { doc, setDoc } = await import('firebase/firestore');
+               
+               const p = event.data.payload;
+               if (user && user.uid === p.userId) {
+                 if (p.mockWriteType === 'strava') {
+                   await setDoc(doc(db, 'users', user.uid, 'connections', 'strava'), p.publicData, { merge: true });
+                   await setDoc(doc(db, 'users', user.uid, 'privateConnections', 'strava'), p.privateData, { merge: true });
+                   await setDoc(doc(db, 'users', user.uid), p.userMergeData, { merge: true });
+                   console.log('Client-side Strava connection storage fallback succeeded!');
+                 } else if (p.mockWriteType === 'intervals') {
+                   await setDoc(doc(db, 'users', user.uid, 'connections', 'intervals'), p.publicData, { merge: true });
+                   await setDoc(doc(db, 'users', user.uid, 'privateConnections', 'intervals'), p.privateData, { merge: true });
+                   console.log('Client-side Intervals connection storage fallback succeeded!');
+                 }
+               }
+             } catch(err) {
+               console.error('Client-side storage fallback error:', err);
+             }
+           }
            setCheckStrava(prev => !prev);
+           setCheckIntervals(prev => !prev);
         }
       }
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [user]);
 
   const handleConnectStrava = async () => {
     if (!user) return;
